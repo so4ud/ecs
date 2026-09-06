@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "new_ecs",
+    "macros",
+]
+resolver = "1"
+
+[workspace.dependencies]
+# Shared dependencies can go here
