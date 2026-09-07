@@ -150,7 +150,7 @@ impl ECS {
     pub(super) fn get_event<T: Event + 'static>(&mut self) -> Option<T> {
         None
     }
-    pub fn push_event<T: Event + 'static>(&mut self, event: T) {
-        self.events.push_event(event);
+    pub(crate) fn push_event<T: Event + 'static>(&mut self, event: T) {
+        self.events.push_next_tick_event(event);
     }
 }

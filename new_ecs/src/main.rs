@@ -6,11 +6,11 @@ pub mod entities;
 pub mod events;
 pub mod recources;
 pub mod systems;
-
+pub mod systemsex;
 use crate::{
     app::App,
     ecs::{ECS, EntityID},
-    events::Event,
+    events::{Event, Update},
 };
 use components::Component;
 use macros::{Component, Event};
@@ -35,9 +35,17 @@ fn main() {
         app.ecs.attach_component(id, Sex { sex: "sesx" });
     });
 
-    app.add_system::<Evv>(|ecs| {
+    app.add_system::<Update>(|ecs| {
+        ecs.push_event(Evv {});
+        ecs.push_event(Evv {});
         let comp = ecs.get_component_ref::<Sex>(0).unwrap();
         println!("hi: {}", comp.sex);
     });
-    app.run();
+    app.add_system::<Evv>(|_| {
+        dbg!("evv spoted");
+    });
+    app.run_plugins();
+    loop {
+        app.update();
+    }
 }
