@@ -3,6 +3,7 @@ use std::{any::TypeId, time::Instant};
 use crate::{
     ecs::ECS,
     events::{Event, Startup, Update},
+    plugins::wgpu_plugin::Runtime,
     systems::Systems,
 };
 
@@ -25,27 +26,34 @@ impl App {
 
         ses
     }
+    pub fn run(mut self) {
+        self.run_plugins();
+        if !self.ecs.recources.has_recource::<Runtime>() {
+            self.run_plugins();
+            loop {
+                self.update();
+            }
+        } else {
+            let mut runtime = self.ecs.recources.pop_recource::<Runtime>().unwrap();
+            (runtime.runtime)(self);
+        }
+    }
     /// plugins are ran in the order that they are added
-    pub(super) fn add_plugin(&mut self, plugin: fn(&mut App)) {
-        self.plugins.plugins.push(plugin);
+    pub(super) fn add_plugin<F: Fn(&mut App) + 'static>(&mut self, plugin: F) {
+        self.plugins.plugins.push(Box::new(plugin));
+    }
+    pub fn add_plugins<T: AddPlugIn>(&mut self, plugins: T) {
+        plugins.add_self_as_plugin(self);
     }
     /// systems are ran in the order that they are added
     pub(super) fn add_system<TriggerEvent: Event + 'static>(&mut self, system: fn(&mut ECS)) {
         let type_id = TypeId::of::<TriggerEvent>();
         self.systems.systems.insert(type_id, system);
     }
-    pub(super) fn run(mut self) {
-        self.plugins.clone().run(&mut self);
-        self.plugins.clear();
-
-        loop {
-            for system in &self.systems.systems {
-                (system.1)(&mut self.ecs);
-            }
-        }
-    }
     pub fn run_plugins(&mut self) {
-        self.plugins.clone().run(self);
+        let mut new_plugins = Plugins { plugins: vec![] };
+        std::mem::swap(&mut self.plugins, &mut new_plugins);
+        new_plugins.run(self);
         self.plugins.clear();
     }
     pub(crate) fn update(&mut self) {
@@ -80,9 +88,8 @@ impl App {
 
 enum AppErr {}
 
-#[derive(Debug, Clone)]
 struct Plugins {
-    plugins: Vec<fn(&mut App)>,
+    plugins: Vec<Box<dyn Fn(&mut App)>>,
 }
 impl Plugins {
     fn new() -> Self {
@@ -90,14 +97,36 @@ impl Plugins {
     }
     fn run(&self, app: &mut App) {
         for plugin in &self.plugins {
-            plugin(app);
+            (*plugin)(app);
         }
     }
     fn clear(&mut self) {
         self.plugins.clear();
     }
 }
-
+pub trait AddPlugIn {
+    fn add_self_as_plugin(self, app: &mut App);
+}
+impl<F: Fn(&mut App) + 'static> AddPlugIn for F {
+    fn add_self_as_plugin(self, app: &mut App) {
+        app.add_plugin(self);
+    }
+}
+impl<F1: Fn(&mut App) + 'static, F2: Fn(&mut App) + 'static> AddPlugIn for (F1, F2) {
+    fn add_self_as_plugin(self, app: &mut App) {
+        self.0.add_self_as_plugin(app);
+        self.1.add_self_as_plugin(app);
+    }
+}
+impl<F1: Fn(&mut App) + 'static, F2: Fn(&mut App) + 'static, F3: Fn(&mut App) + 'static> AddPlugIn
+    for (F1, F2, F3)
+{
+    fn add_self_as_plugin(self, app: &mut App) {
+        self.0.add_self_as_plugin(app);
+        self.1.add_self_as_plugin(app);
+        self.2.add_self_as_plugin(app);
+    }
+}
 struct UpdateInfo {
     is_first: bool,
     latest_update: Instant,

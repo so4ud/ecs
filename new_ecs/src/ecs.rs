@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 
 use crate::{
     Event,
@@ -10,10 +10,10 @@ pub type Sigtype = u128;
 pub type EntityID = usize;
 
 pub struct ECS {
-    pub entities: entities::Entities,
-    pub compoents: components::Components,
-    pub recources: recources::Recources,
-    pub events: events::Events,
+    pub(crate) entities: entities::Entities,
+    pub(crate) compoents: components::Components,
+    pub(crate) recources: recources::Recources,
+    pub(crate) events: events::Events,
 }
 impl ECS {
     pub fn new() -> Self {
@@ -24,7 +24,7 @@ impl ECS {
             events: events::Events::new(),
         }
     }
-    pub(super) fn spawn_entity(&mut self) -> EntityID {
+    pub fn spawn_entity(&mut self) -> EntityID {
         for i in 0..self.entities.entity_info.len() {
             let info = self.entities.entity_info[i];
             match info {
@@ -40,7 +40,7 @@ impl ECS {
 
         return entity_id;
     }
-    pub(super) fn attach_component<T: components::Component + 'static>(
+    pub fn attach_component<T: components::Component + 'static>(
         &mut self,
         entity_id: EntityID,
         component: T,
@@ -70,7 +70,10 @@ impl ECS {
             Option::None => self.entities.entity_info[entity_id] = Some(component_signature),
         }
     }
-    pub(super) fn pop_component<T: components::Component + 'static + Clone>(
+    pub fn has_recource<T: 'static>(&self) -> bool {
+        self.recources.has_recource::<T>()
+    }
+    pub fn pop_component<T: components::Component + 'static + Clone>(
         &mut self,
         entity_id: EntityID,
     ) -> Result<T, String> {
@@ -108,7 +111,7 @@ impl ECS {
 
         return Ok(component);
     }
-    pub(super) fn despawn_entity(&mut self, entity_id: EntityID) -> Result<(), String> {
+    pub fn despawn_entity(&mut self, entity_id: EntityID) -> Result<(), String> {
         if self.entities.entity_info.len() < entity_id + 1 {
             return Err(String::from("trying to index entity outside lenth"));
         }
@@ -116,7 +119,7 @@ impl ECS {
         self.entities.entity_info[entity_id] = None;
         Ok(())
     }
-    pub(super) fn get_component_ref<'a, T: components::Component + 'static>(
+    pub fn get_component_ref<'a, T: components::Component + 'static>(
         &'a self,
         entity_id: EntityID,
     ) -> Option<&'a T> {
@@ -132,7 +135,7 @@ impl ECS {
         let ses = component_line[entity_id].as_ref();
         return ses;
     }
-    pub(super) fn get_component_mut<'a, T: components::Component + 'static>(
+    pub fn get_component_mut<'a, T: components::Component + 'static>(
         &'a mut self,
         entity_id: EntityID,
     ) -> Option<&'a mut T> {
@@ -148,14 +151,46 @@ impl ECS {
         let ses = component_line[entity_id].as_mut();
         return ses;
     }
-    pub fn initialize_component<T: Component + 'static>() {}
-    pub(super) fn get_event<T: Event + 'static>(&mut self) -> Option<&T> {
+    pub fn pop_recource<T: 'static>(&mut self) -> Option<T> {
+        self.recources.pop_recource()
+    }
+    pub fn get_recource_mut<T: 'static>(&mut self) -> Option<&mut T> {
+        self.recources.get_recource_mut()
+    }
+    pub fn get_recource_ref<T: 'static>(&self) -> Option<&T> {
+        self.recources.get_recource_ref()
+    }
+    pub(crate) fn initialize_component<T: Component + 'static>() {}
+    pub fn get_event<T: Event + 'static>(&mut self) -> Option<&T> {
         self.events.get_latest_event::<T>()
     }
-    pub(crate) fn push_event<T: Event + 'static>(&mut self, event: T) {
+    pub fn push_event<T: Event + 'static>(&mut self, event: T) {
         self.events.push_next_tick_event(event);
     }
-    // pub(crate) fn has<T: Component + 'static>(entity_id: EntityID) -> Result<bool, EntityGetErr> {}
+    pub fn has_component<T: Component + 'static>(&self, entity_id: EntityID) -> bool {
+        if !self.entities.is_alive(entity_id) {
+            return false;
+        }
+        let type_id = TypeId::of::<T>();
+        if !self.compoents.type_to_sig.contains_key(&type_id) {
+            return false;
+        }
+        let component_signature = self.compoents.type_to_sig[&type_id].clone();
+        let entity_signature = self.entities.get_entity_signature(entity_id).unwrap();
+
+        return (entity_signature & component_signature) == component_signature;
+    }
+    pub fn iter_over_alive_entity_ids(&self) -> impl Iterator<Item = EntityID> {
+        let mut pih = vec![];
+        for i in 0..self.entities.entity_info.len() {
+            match &self.entities.entity_info[i] {
+                Some(_) => pih.push(i),
+                None => (),
+            }
+        }
+
+        return pih.into_iter();
+    }
 }
 
 pub(crate) enum EntityGetErr {
