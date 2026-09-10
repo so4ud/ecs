@@ -4,6 +4,4 @@ members = [
     "macros",
 ]
 resolver = "1"
-
-[workspace.dependencies]
 # Shared dependencies can go here

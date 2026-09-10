@@ -61,7 +61,7 @@ impl App {
             update_info.is_first = false;
         } else {
             self.ecs.events.push_event(Update {
-                dv: update_info.latest_update - Instant::now(),
+                dv: Instant::now() - update_info.latest_update,
             });
             update_info.latest_update = Instant::now();
         }

@@ -46,5 +46,10 @@ pub(super) struct Update {
     /// time since last update
     pub(super) dv: std::time::Duration,
 }
+impl Update {
+    pub(crate) fn as_secs(&self) -> f64 {
+        self.dv.as_nanos().to_owned() as f64 / 1000_000_000.0
+    }
+}
 #[derive(Debug, Clone, Copy, Event)]
 pub(super) struct Startup {}

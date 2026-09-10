@@ -1,5 +1,5 @@
 use std::{
-    any::{Any, TypeId},
+    any::{Any, TypeId, type_name},
     collections::HashMap,
 };
 
@@ -35,13 +35,11 @@ impl Components {
         }
         let sig: Sigtype = 1 << self.sig_offset;
         self.sig_offset += 1;
-
         // get metadata in order
         self.sig_to_type.insert(sig, id);
         self.type_to_sig.insert(id, sig);
         self.sig_to_data
             .insert(sig, ComponentData::new(T::die, T::add_nones_to_reach_index));
-
         // insert the "component line" :)
         let component_line: Vec<Option<T>> = vec![];
         self.component_lines.insert(id, Box::new(component_line));
@@ -108,6 +106,8 @@ pub trait Component {
     where
         Self: Sized + 'static,
     {
+        // dbg!(component_line.is::<Vec<Option<Self>>>())
+        // dbg!(type_name::<Self>());
         let pih = component_line.downcast_mut::<Vec<Option<Self>>>().unwrap();
         let len = pih.len();
         if len == 0 {

@@ -52,7 +52,9 @@ impl ECS {
         let component_functions = self.compoents.sig_to_data.clone();
         for i in &mut self.compoents.component_lines {
             for func in &component_functions {
-                (func.1.push_none)(i.1, entity_id + 1);
+                if self.compoents.sig_to_type[func.0] == *i.0 {
+                    (func.1.push_none)(i.1, entity_id + 1);
+                }
             }
         }
 
@@ -147,10 +149,15 @@ impl ECS {
         return ses;
     }
     pub fn initialize_component<T: Component + 'static>() {}
-    pub(super) fn get_event<T: Event + 'static>(&mut self) -> Option<T> {
-        None
+    pub(super) fn get_event<T: Event + 'static>(&mut self) -> Option<&T> {
+        self.events.get_latest_event::<T>()
     }
     pub(crate) fn push_event<T: Event + 'static>(&mut self, event: T) {
         self.events.push_next_tick_event(event);
     }
+    // pub(crate) fn has<T: Component + 'static>(entity_id: EntityID) -> Result<bool, EntityGetErr> {}
+}
+
+pub(crate) enum EntityGetErr {
+    NoEntityAtEntityId,
 }
