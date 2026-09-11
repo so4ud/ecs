@@ -7,11 +7,11 @@ use winit::window::{Window, WindowId};
 
 use crate::app::App;
 use crate::wgpu;
-// ! maybe make winit non optional
+
 pub fn wgpu_plugin(app: &mut App) {
-    app.ecs.recources.insert_recource(Runtime {
-        runtime: Box::new(winit_runtime),
-    });
+    app.ecs
+        .recources
+        .insert_recource(Runtime::new(winit_runtime));
 }
 
 fn winit_runtime(mut app: App) {
@@ -30,6 +30,13 @@ fn winit_runtime(mut app: App) {
 
 pub struct Runtime {
     pub runtime: Box<dyn FnMut(App)>,
+}
+impl Runtime {
+    pub fn new(f: impl FnMut(App) + 'static) -> Self {
+        Self {
+            runtime: Box::new(f),
+        }
+    }
 }
 
 struct State {

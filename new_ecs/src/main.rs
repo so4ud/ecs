@@ -2,6 +2,7 @@
 
 use core::panic;
 pub mod app;
+pub mod archetypes;
 pub mod components;
 pub mod ecs;
 pub mod entities;
@@ -13,9 +14,9 @@ pub mod systems;
 pub mod systemsex;
 use crate::{
     app::App,
+    archetypes::Plugins,
     ecs::{ECS, EntityID},
     events::{Event, Startup, Update},
-    plugins::{Plugins, wgpu_plugin::wgpu_plugin},
 };
 use bevy_ecs;
 use components::Component;
