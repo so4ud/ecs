@@ -40,6 +40,9 @@ impl ECS {
 
         return entity_id;
     }
+    pub fn push_recource<T: 'static>(&mut self, recource: T) {
+        self.recources.insert_recource(recource);
+    }
     pub fn attach_component<T: components::Component + 'static>(
         &mut self,
         entity_id: EntityID,
@@ -167,7 +170,7 @@ impl ECS {
     pub fn push_event<T: Event + 'static>(&mut self, event: T) {
         self.events.push_next_tick_event(event);
     }
-    pub fn has_component<T: Component + 'static>(&self, entity_id: EntityID) -> bool {
+    pub fn has_component_immut<T: Component + 'static>(&self, entity_id: EntityID) -> bool {
         if !self.entities.is_alive(entity_id) {
             return false;
         }
@@ -179,6 +182,10 @@ impl ECS {
         let entity_signature = self.entities.get_entity_signature(entity_id).unwrap();
 
         return (entity_signature & component_signature) == component_signature;
+    }
+    pub fn has_component<T: Component + 'static>(&mut self, entity_id: EntityID) -> bool {
+        self.compoents.initialize_component::<T>();
+        self.has_component_immut::<T>(entity_id)
     }
     pub fn iter_over_alive_entity_ids(&self) -> impl Iterator<Item = EntityID> {
         let mut pih = vec![];

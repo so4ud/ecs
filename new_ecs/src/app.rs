@@ -1,9 +1,9 @@
 use std::{any::TypeId, time::Instant};
 
 use crate::{
+    archetypes::Runtime,
     ecs::ECS,
     events::{Event, Startup, Update},
-    plugins::wgpu_plugin::Runtime,
     systems::Systems,
 };
 
@@ -29,11 +29,11 @@ impl App {
     pub fn run(mut self) {
         self.run_plugins();
         if !self.ecs.recources.has_recource::<Runtime>() {
-            self.run_plugins();
             loop {
                 self.update();
             }
         } else {
+            // self.update();
             let mut runtime = self.ecs.recources.pop_recource::<Runtime>().unwrap();
             (runtime.runtime)(self);
         }
@@ -48,7 +48,7 @@ impl App {
     /// systems are ran in the order that they are added
     pub(super) fn add_system<TriggerEvent: Event + 'static>(&mut self, system: fn(&mut ECS)) {
         let type_id = TypeId::of::<TriggerEvent>();
-        self.systems.systems.insert(type_id, system);
+        self.systems.systems.push((type_id, system));
     }
     pub fn run_plugins(&mut self) {
         let mut new_plugins = Plugins { plugins: vec![] };
@@ -73,11 +73,12 @@ impl App {
             });
             update_info.latest_update = Instant::now();
         }
-        let event_type_ids: Vec<TypeId> = self.ecs.events.events.iter().map(|i| i.0).collect();
+        let mut event_type_ids: Vec<TypeId> = self.ecs.events.events.iter().map(|i| i.0).collect();
+        // event_type_ids.dedup();
 
-        for i in event_type_ids {
+        for i in &event_type_ids {
             for sys in &self.systems.systems {
-                if &i == sys.0 {
+                if i == &sys.0 {
                     (sys.1)(&mut self.ecs);
                 }
             }

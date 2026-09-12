@@ -1212,6 +1212,7 @@ name = "new_ecs"
 version = "0.1.0"
 dependencies = [
  "bevy_ecs",
+ "bytemuck",
  "macros",
  "pollster",
  "wgpu",

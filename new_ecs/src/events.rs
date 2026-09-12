@@ -53,3 +53,5 @@ impl Update {
 }
 #[derive(Debug, Clone, Copy, Event)]
 pub(super) struct Startup {}
+#[derive(Debug, Clone, Copy, Event)]
+pub(super) struct CloseRequested {}

@@ -1,6 +1,3 @@
-use crate::{
-    app::{AddPlugIn, App},
-    plugins::wgpu_plugin::wgpu_plugin,
-};
+use crate::app::{AddPlugIn, App};
 
 pub mod wgpu_plugin;
