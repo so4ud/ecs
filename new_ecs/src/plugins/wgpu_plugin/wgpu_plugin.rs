@@ -29,7 +29,7 @@ pub fn wgpu_plugin(app: &mut App, event_loop: &winit::event_loop::ActiveEventLoo
 
 fn resize_sys(ecs: &mut ECS) {
     let new_size = ecs.get_event::<WindowResized>().unwrap().clone();
-    dbg!(&new_size);
+    // dbg!(&new_size);
     let state = ecs.get_recource_mut::<State>().unwrap();
 
     state.resize(winit::dpi::PhysicalSize {

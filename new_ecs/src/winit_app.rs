@@ -35,13 +35,9 @@ impl ApplicationHandler for App {
                 self.ecs.push_event(events::WindowResized {
                     new_size: (size.width, size.height),
                 });
-                dbg!(&size);
-                // self.ecs.get_recource_mut::<State>().unwrap().resize(size);
+                // dbg!(&size);
             }
             WindowEvent::RedrawRequested => {
-                // let mut state = self.ecs.recources.pop_recource::<State>().unwrap();
-                // state.window.request_redraw();
-                // self.ecs.insert_recource(state);
                 self.ecs
                     .get_recource_ref::<Arc<Window>>()
                     .unwrap()

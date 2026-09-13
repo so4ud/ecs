@@ -75,11 +75,6 @@ impl App {
             update_info.latest_update = Instant::now();
         }
         let mut event_type_ids: Vec<TypeId> = self.ecs.events.events.iter().map(|i| i.0).collect();
-        // let mut event_type_ids = vec![];
-        // for i in &self.ecs.events.events {
-        //     event_type_ids.push(i.0.clone());
-        // }
-        // event_type_ids.dedup();
 
         for i in &event_type_ids {
             for sys in &self.systems.systems {
@@ -87,6 +82,7 @@ impl App {
                     (sys.1)(&mut self.ecs);
                 }
             }
+            self.ecs.events.events.pop_front();
         }
         self.ecs.events.swap_and_clear();
     }

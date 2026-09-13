@@ -116,5 +116,26 @@ fn main() {
         state.render(Some(vertex_buffer), Some(texture_view));
         ecs.insert_recource(state);
     });
+    app.add_system::<Startup>(|ecs| {
+        ecs.push_event(E1 {});
+        ecs.push_event(E2 {});
+        ecs.push_event(E3 {});
+    });
+    app.add_system::<E1>(|_| {
+        dbg!(1);
+    });
+    app.add_system::<E2>(|_| {
+        dbg!(2);
+    });
+    app.add_system::<E3>(|_| {
+        dbg!(3);
+    });
     app.run();
 }
+
+#[derive(Clone, Copy, Event)]
+struct E1 {}
+#[derive(Clone, Copy, Event)]
+struct E2 {}
+#[derive(Clone, Copy, Event)]
+struct E3 {}
