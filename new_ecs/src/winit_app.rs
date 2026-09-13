@@ -31,20 +31,24 @@ impl ApplicationHandler for App {
                 // user's responsibility
                 self.ecs.push_event(events::CloseRequested {});
             }
+            WindowEvent::Resized(size) => {
+                self.ecs.push_event(events::WindowResized {
+                    new_size: (size.width, size.height),
+                });
+                dbg!(&size);
+                // self.ecs.get_recource_mut::<State>().unwrap().resize(size);
+            }
             WindowEvent::RedrawRequested => {
                 // let mut state = self.ecs.recources.pop_recource::<State>().unwrap();
                 // state.window.request_redraw();
                 // self.ecs.insert_recource(state);
+                self.ecs
+                    .get_recource_ref::<Arc<Window>>()
+                    .unwrap()
+                    .request_redraw();
                 self.update();
             }
 
-            WindowEvent::Resized(size) => {
-                // let state = self.ecs.recources.get_recource_mut::<State>().unwrap();
-                // state.resize(size);
-                self.ecs.push_event(events::WindowResized {
-                    new_size: (size.width, size.height),
-                });
-            }
             _ => (),
         }
     }

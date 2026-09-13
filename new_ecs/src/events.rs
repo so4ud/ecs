@@ -23,7 +23,7 @@ impl Events {
     }
     pub fn push_next_tick_event<T: Event + 'static>(&mut self, event: T) {
         self.next_tick_events
-            .push_back((TypeId::of::<T>(), Box::new(event)));
+            .push_front((TypeId::of::<T>(), Box::new(event)));
     }
     /// returns a reference to the latest event, if the type of the event doewsnt match with the provided generic returns `None`
     pub fn get_latest_event<T: Event + Clone + 'static>(&mut self) -> Option<&T> {

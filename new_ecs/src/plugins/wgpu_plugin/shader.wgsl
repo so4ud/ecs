@@ -1,3 +1,6 @@
+@group(0) @binding(0) var mySampler: sampler;
+@group(0) @binding(1) var myTexture: texture_2d<f32>;
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
@@ -7,28 +10,21 @@ struct VertexInput {
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) color: vec4<f32>,
+    @location(0) uv: vec2<f32>,
 };
 
 @vertex
 fn vs_main(model: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    out.clip_position = vec4<f32>(model.position, 1.0);
-    if model.position.x > 0.1 {
-        out.color = vec4<f32>(1.0, 0.0, 0.0, 0.0);
-    }
-    if model.position.x < -0.1 {
-        out.color = vec4<f32>(0.0, 1.0, 0.0, 1.0);
-    }
-    if model.position.y > 0.1 {
-        out.color = vec4<f32>(0.0, 0.0, 1.0, 1.0);
-    }
+    out.clip_position = vec4<f32>(model.position, 1.0); 
+    out.uv = vec2<f32>(model.uv); 
     return out;
 }
 
 // Fragment Shader Entry Point
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-  // Return solid red color (RGBA)
-  return in.color;
+  let color = textureSample(myTexture, mySampler, in.uv);
+
+  return color;
 }

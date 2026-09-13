@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     ecs::ECS,
-    events::{Event, Startup, Update},
+    events::{Event, Startup, Update, WindowResized},
     systems::Systems,
 };
 
@@ -75,6 +75,10 @@ impl App {
             update_info.latest_update = Instant::now();
         }
         let mut event_type_ids: Vec<TypeId> = self.ecs.events.events.iter().map(|i| i.0).collect();
+        // let mut event_type_ids = vec![];
+        // for i in &self.ecs.events.events {
+        //     event_type_ids.push(i.0.clone());
+        // }
         // event_type_ids.dedup();
 
         for i in &event_type_ids {

@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use wgpu::util::DeviceExt;
-use wgpu::{Buffer, RenderPipeline, RenderPipelineDescriptor};
+use wgpu::{
+    BindGroupLayout, Buffer, Extent3d, RenderPipeline, RenderPipelineDescriptor, Texture,
+    TextureView,
+};
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, OwnedDisplayHandle};
@@ -40,12 +43,33 @@ impl State {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
         });
-
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Single Texture Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::all(),
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::all(),
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                ],
+            });
         // 2. Create the pipeline layout (defines uniform/bind group layouts)
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[], // Add your &BindGroupLayouts here if passing uniforms
+                bind_group_layouts: &[Some(&texture_bind_group_layout)], // Add your &BindGroupLayouts here if passing uniforms
                 immediate_size: 0,
             });
 
@@ -137,6 +161,7 @@ impl State {
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        // dbg!(&new_size);
         self.size = new_size;
 
         if self.size.width != 0 && self.size.height != 0 {
@@ -144,7 +169,7 @@ impl State {
         }
     }
 
-    pub fn render(&mut self, vertex_buffer: Option<&Buffer>) {
+    pub fn render(&mut self, vertex_buffer: Option<&Buffer>, texture: Option<&TextureView>) {
         let surface_texture = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture) => texture,
             wgpu::CurrentSurfaceTexture::Occluded | wgpu::CurrentSurfaceTexture::Timeout => return,
@@ -172,6 +197,7 @@ impl State {
                 // Without add_srgb_suffix() the image we will be working with
                 // might not be "gamma correct".
                 format: Some(self.surface_format.add_srgb_suffix()),
+                // format: Some(wgpu::TextureFormat::Rgba16Float),
                 ..Default::default()
             });
 
@@ -179,6 +205,7 @@ impl State {
         let mut encoder = self.device.create_command_encoder(&Default::default());
         // Create the renderpass which will clear the screen.
         let size = self.size.clone();
+        // dbg!(&size);
 
         if size.width != 0 && size.height != 0 {
             let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -202,13 +229,57 @@ impl State {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            match vertex_buffer {
-                Some(vertex_buffer) => {
-                    renderpass.set_vertex_buffer(0, vertex_buffer.slice(..));
-                    renderpass.set_pipeline(&self.render_pipeline);
-                    renderpass.draw(0..3, 0..1);
-                }
-                _ => (),
+            let sampler = self
+                .device
+                .create_sampler(&wgpu::SamplerDescriptor::default());
+            if texture.is_some() {
+                let texture_bind_group_layout =
+                    self.device
+                        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                            label: Some("Single Texture Bind Group Layout"),
+                            entries: &[
+                                wgpu::BindGroupLayoutEntry {
+                                    binding: 0,
+                                    visibility: wgpu::ShaderStages::all(),
+                                    ty: wgpu::BindingType::Sampler(
+                                        wgpu::SamplerBindingType::NonFiltering,
+                                    ),
+                                    count: None,
+                                },
+                                wgpu::BindGroupLayoutEntry {
+                                    binding: 1,
+                                    visibility: wgpu::ShaderStages::all(),
+                                    ty: wgpu::BindingType::Texture {
+                                        sample_type: wgpu::TextureSampleType::Float {
+                                            filterable: false,
+                                        },
+                                        view_dimension: wgpu::TextureViewDimension::D2,
+                                        multisampled: false,
+                                    },
+                                    count: None,
+                                },
+                            ],
+                        });
+
+                let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Texture Bind Group"),
+                    layout: &texture_bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Sampler(&sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&texture.unwrap()),
+                        },
+                    ],
+                });
+                renderpass.set_bind_group(0, &bind_group, &[]);
+
+                renderpass.set_vertex_buffer(0, vertex_buffer.unwrap().slice(..));
+                renderpass.set_pipeline(&self.render_pipeline);
+                renderpass.draw(0..6, 0..1);
             }
 
             drop(renderpass);
