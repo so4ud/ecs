@@ -12,6 +12,7 @@ pub mod query;
 pub mod recources;
 pub mod systems;
 pub mod systemsex;
+mod winit_app;
 use crate::{
     app::App,
     archetypes::Plugins,
@@ -27,6 +28,7 @@ use std::{
     collections::HashMap,
     io::Write,
     ops::AddAssign,
+    sync::Arc,
     vec,
 };
 use wgpu::{self, Buffer, util::DeviceExt};
@@ -35,7 +37,7 @@ fn main() {
     systemsex::main();
     let mut app = App::new();
     app.add_plugins(Plugins::default());
-    app.add_system::<events::CloseRequested>(|ecs: &mut ECS| {
+    app.add_system::<events::CloseRequested>(|_| {
         dbg!("blueh");
         std::process::exit(0);
     });
@@ -56,9 +58,9 @@ fn main() {
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Vertex Buffer"),
                     contents: bytemuck::cast_slice(&vertecies),
-                    usage: wgpu::BufferUsages::VERTEX, // Mark it specifically as a vertex buffer
+                    usage: wgpu::BufferUsages::VERTEX,
                 });
-        ecs.push_recource(vertex_buffer);
+        ecs.insert_recource(vertex_buffer);
     });
     app.add_system::<Update>(|ecs| {
         if !ecs.has_recource::<Buffer>() {

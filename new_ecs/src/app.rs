@@ -1,7 +1,9 @@
-use std::{any::TypeId, time::Instant};
+use std::{
+    any::{Any, TypeId},
+    time::Instant,
+};
 
 use crate::{
-    archetypes::Runtime,
     ecs::ECS,
     events::{Event, Startup, Update},
     systems::Systems,
@@ -27,20 +29,19 @@ impl App {
         ses
     }
     pub fn run(mut self) {
-        self.run_plugins();
-        if !self.ecs.recources.has_recource::<Runtime>() {
-            loop {
-                self.update();
-            }
-        } else {
-            // self.update();
-            let mut runtime = self.ecs.recources.pop_recource::<Runtime>().unwrap();
-            (runtime.runtime)(self);
-        }
+        let event_loop = winit::event_loop::EventLoop::new().unwrap();
+        event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+        event_loop.run_app(&mut self).unwrap();
     }
     /// plugins are ran in the order that they are added
-    pub(super) fn add_plugin<F: Fn(&mut App) + 'static>(&mut self, plugin: F) {
-        self.plugins.plugins.push(Box::new(plugin));
+    pub fn add_plugin<F: Fn(&mut App) + 'static>(&mut self, plugin: F) {
+        self.plugins.plugins.push((Box::new(plugin), false));
+    }
+    pub fn add_plugin_active_event_loop(
+        &mut self,
+        plugin: fn(&mut App, &winit::event_loop::ActiveEventLoop),
+    ) {
+        self.plugins.plugins.push((Box::new(plugin), true));
     }
     pub fn add_plugins<T: AddPlugIn>(&mut self, plugins: T) {
         plugins.add_self_as_plugin(self);
@@ -50,10 +51,10 @@ impl App {
         let type_id = TypeId::of::<TriggerEvent>();
         self.systems.systems.push((type_id, system));
     }
-    pub fn run_plugins(&mut self) {
+    pub fn run_plugins(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         let mut new_plugins = Plugins { plugins: vec![] };
         std::mem::swap(&mut self.plugins, &mut new_plugins);
-        new_plugins.run(self);
+        new_plugins.run(self, event_loop);
         self.plugins.clear();
     }
     pub(crate) fn update(&mut self) {
@@ -90,15 +91,24 @@ impl App {
 enum AppErr {}
 
 struct Plugins {
-    plugins: Vec<Box<dyn Fn(&mut App)>>,
+    plugins: Vec<(Box<dyn Any>, bool)>,
 }
 impl Plugins {
     fn new() -> Self {
         Self { plugins: vec![] }
     }
-    fn run(&self, app: &mut App) {
+    fn run(&self, app: &mut App, event_loop: &winit::event_loop::ActiveEventLoop) {
         for plugin in &self.plugins {
-            (*plugin)(app);
+            if plugin.1 == false {
+                let plug = plugin.0.downcast_ref::<fn(&mut App)>().unwrap();
+                plug(app);
+            } else {
+                let plug = plugin
+                    .0
+                    .downcast_ref::<fn(&mut App, &winit::event_loop::ActiveEventLoop)>()
+                    .unwrap();
+                plug(app, event_loop);
+            }
         }
     }
     fn clear(&mut self) {
@@ -113,6 +123,11 @@ impl<F: Fn(&mut App) + 'static> AddPlugIn for F {
         app.add_plugin(self);
     }
 }
+// impl<T: Fn(&mut App, &winit::event_loop::ActiveEventLoop) + 'static> AddPlugIn for T {
+//     fn add_self_as_plugin(self, app: &mut App) {
+//         app.add_plugin_active_event_loop(self);
+//     }
+// }
 impl<F1: Fn(&mut App) + 'static, F2: Fn(&mut App) + 'static> AddPlugIn for (F1, F2) {
     fn add_self_as_plugin(self, app: &mut App) {
         self.0.add_self_as_plugin(app);

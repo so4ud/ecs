@@ -40,7 +40,7 @@ impl ECS {
 
         return entity_id;
     }
-    pub fn push_recource<T: 'static>(&mut self, recource: T) {
+    pub fn insert_recource<T: 'static>(&mut self, recource: T) {
         self.recources.insert_recource(recource);
     }
     pub fn attach_component<T: components::Component + 'static>(

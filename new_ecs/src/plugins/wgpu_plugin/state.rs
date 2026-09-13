@@ -8,7 +8,6 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, OwnedDisplayHan
 use winit::window::{Window, WindowId};
 
 use crate::app::App;
-use crate::archetypes::Runtime;
 use crate::plugins::wgpu_plugin::vertex::Vertex;
 use crate::wgpu;
 

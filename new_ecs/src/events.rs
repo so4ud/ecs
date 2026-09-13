@@ -42,9 +42,9 @@ impl Events {
 }
 
 #[derive(Debug, Clone, Copy, Event)]
-pub(super) struct Update {
+pub struct Update {
     /// time since last update
-    pub(super) dv: std::time::Duration,
+    pub dv: std::time::Duration,
 }
 impl Update {
     pub(crate) fn as_secs(&self) -> f64 {
@@ -52,6 +52,10 @@ impl Update {
     }
 }
 #[derive(Debug, Clone, Copy, Event)]
-pub(super) struct Startup {}
+pub struct Startup {}
 #[derive(Debug, Clone, Copy, Event)]
-pub(super) struct CloseRequested {}
+pub struct CloseRequested {}
+#[derive(Debug, Clone, Copy, Event)]
+pub struct WindowResized {
+    pub new_size: (u32, u32),
+}
