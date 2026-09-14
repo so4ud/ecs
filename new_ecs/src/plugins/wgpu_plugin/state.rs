@@ -279,7 +279,7 @@ impl State {
 
                 renderpass.set_vertex_buffer(0, vertex_buffer.unwrap().slice(..));
                 renderpass.set_pipeline(&self.render_pipeline);
-                renderpass.draw(0..6, 0..1);
+                renderpass.draw(0..0, 0..1);
             }
 
             drop(renderpass);
