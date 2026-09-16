@@ -44,7 +44,7 @@ fn main() {
     });
     app.add_system::<Startup>(|ecs| {
         let state = ecs.get_recource_mut::<State>().unwrap();
-        let vertex_buffer = read_fbx(&state.device, "assets/models/блять.fbx".to_string());
+        let vertex_buffer = read_fbx(&state.device, "assets/models/guy.fbx".to_string());
         let mesh_atlas = ecs.get_recource_mut::<wgpu_plugin::MeshAtlas>().unwrap();
         mesh_atlas.vertex_buffers.push(vertex_buffer);
         // spawn renderable entity
@@ -54,9 +54,9 @@ fn main() {
         ecs.attach_component(
             entity_id,
             Position {
-                x: 0.0,
+                x: -0.5,
                 y: 0.0,
-                z: 0.0,
+                z: 0.5,
             },
         );
         ecs.attach_component(
@@ -97,10 +97,15 @@ fn main() {
     app.add_system::<Update>(|ecs| {
         let mut counter = ecs.pop_recource::<f32>().unwrap();
         let mut cam_id = 1;
+        // let or = ecs.get_component_mut::<Orientation>(1).unwrap();
+        // or.y += 1.0;
 
-        let pos = ecs.get_component_mut::<Position>(cam_id).unwrap();
-        pos.z = counter.sin();
-        counter += 1.0;
+        let pos = ecs.get_component_mut::<Orientation>(0).unwrap();
+        pos.y += counter.sin() / 180.0;
+        counter += 0.01;
+        if counter > 360.0 {
+            counter -= 360.0;
+        }
 
         ecs.insert_recource(counter);
     });

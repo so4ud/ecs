@@ -1,8 +1,10 @@
 struct Uniforms {  
-    mvp: mat4x4<f32>,
+    m: mat4x4<f32>,
+    v: mat4x4<f32>,
+    p: mat4x4<f32>,
 }
 
-@group(0) @binding(0) var<uniform> unifroms: Uniforms; 
+@group(0) @binding(0) var<uniform> uniforms: Uniforms; 
 @group(0) @binding(1) var mySampler: sampler; 
 @group(0) @binding(2) var myTexture: texture_2d<f32>; 
 
@@ -21,7 +23,10 @@ struct VertexOutput {
 @vertex
 fn vs_main(model: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    out.clip_position =  unifroms.mvp * vec4f(model.position, 1.0); 
+    var ses =  uniforms.m * vec4f(model.position, 1.0); 
+    ses.y = (ses.y + 1) / 2;
+    out.clip_position = ses;
+    // out.clip_position =  uniforms.v * vec4f(model.position, 1.0); 
     out.uv = vec2<f32>(model.uv); 
     return out;
 }

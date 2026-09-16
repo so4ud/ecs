@@ -15,7 +15,7 @@ use winit::window::{Window, WindowId};
 use crate::app::App;
 use crate::ecs::ECS;
 use crate::plugins::wgpu_plugin::vertex::Vertex;
-use crate::plugins::wgpu_plugin::{RenderingPipelinesAndBinds, Uniforms};
+use crate::plugins::wgpu_plugin::{RenderingPipelinesAndBinds, TextureInfo, Uniforms};
 use crate::wgpu;
 
 pub struct State {
@@ -206,7 +206,10 @@ impl State {
         &mut self,
         vertex_buffer: Option<(&Buffer, u32)>,
         texture: Option<&TextureView>,
-        mvp: [[f32; 4]; 4],
+        texture_info: Option<&TextureInfo>,
+        m: [[f32; 4]; 4],
+        v: [[f32; 4]; 4],
+        p: [[f32; 4]; 4],
         render_pipeline: &RenderPipeline,
         bind_group_layout: &BindGroupLayout,
     ) {
@@ -275,7 +278,11 @@ impl State {
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
-            let uniforms = Uniforms { mvp: mvp.into() };
+            let uniforms = Uniforms {
+                m: m.into(),
+                v: v.into(),
+                p: p.into(),
+            };
             self.queue
                 .write_buffer(&uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
 

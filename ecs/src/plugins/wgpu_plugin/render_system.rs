@@ -7,11 +7,16 @@ use crate::{
     },
 };
 use cgmath::{
-    self, Angle, Basis3, Deg, Euler, Matrix3, Matrix4, Point3, Rad, Vector3, Vector4, perspective,
+    self, Angle, Basis3, Deg, Euler, Matrix3, Matrix4, Point3, Rad, Vector3, Vector4, frustum,
+    perspective,
 };
 use wgpu::Buffer;
 // cehck for what entities have and shi
 pub fn render_system(ecs: &mut ECS) {
+    let size = ecs.get_recource_ref::<State>().unwrap().window.inner_size();
+    if size.width == 0 || size.height == 0 {
+        return;
+    }
     let camera = get_camera_info(ecs);
     let camera = match camera {
         Some(camera) => camera,
@@ -27,6 +32,9 @@ pub fn render_system(ecs: &mut ECS) {
     for entity_id in ecs.iter_over_alive_entity_ids() {
         if ecs.has_component_immut::<Mesh>(entity_id) {
             let entity_render_info = get_entity_render_info(&ecs, entity_id).unwrap();
+            // dbg!(&entity_render_info.posx);
+            // dbg!(&entity_render_info.posy);
+            // dbg!(&entity_render_info.posz);
             let translation = Matrix4::from_translation(Vector3 {
                 x: entity_render_info.posx,
                 y: entity_render_info.posy,
@@ -38,7 +46,7 @@ pub fn render_system(ecs: &mut ECS) {
                 z: Deg(entity_render_info.angz),
             });
             // ! maybe add something later
-            let scale = Matrix4::from_scale(1.0f32);
+            let scale = Matrix4::from_scale(0.5f32);
 
             let model_matrix = translation * rotation * scale;
             let mvp = model_matrix * view_matrix * perspective_matrix;
@@ -53,7 +61,10 @@ pub fn render_system(ecs: &mut ECS) {
             state.render(
                 Some(entity_render_info.mesh),
                 Some(entity_render_info.texture_atlas),
-                mvp.into(),
+                Some(entity_render_info.texture_info),
+                model_matrix.into(),
+                view_matrix.into(),
+                perspective_matrix.into(),
                 render_pipeline,
                 bind_group_layout,
             );
@@ -125,24 +136,28 @@ fn calc_camera_maricies(camera: &CamInfo) -> (Matrix4<f32>, Matrix4<f32>) {
         z: camera.posz,
     };
     let center = eye
-        + (rot
+        + (rotx
+            * roty
             * Vector3 {
                 x: 0.0,
                 y: 0.0,
                 z: 1.0,
             }); // point in fornt of the camera (rotates)
-    let up = eye
-        + (rot
-            * Vector3 {
-                x: 0.0,
-                y: 1.0,
-                z: 0.0,
-            }); // point above of the camera (rotates)
+    let center = Point3 {
+        x: 0.0f32,
+        y: 0.0,
+        z: 01.0,
+    }; // point in fornt of the camera (rotates)
     let up = Vector3 {
-        x: up.x,
-        y: up.y,
-        z: up.z,
-    };
+        x: 0.0,
+        y: 1.0,
+        z: 0.0,
+    }; // point above of the camera (rotates)
+    // let up = Vector3 {
+    //     x: up.x,
+    //     y: up.y,
+    //     z: up.z,
+    // };
     let view_matrix = cgmath::Matrix4::look_at_rh(eye, center, up);
     let perspective = perspective(
         Rad(camera.fovy.to_radians()),
@@ -150,6 +165,10 @@ fn calc_camera_maricies(camera: &CamInfo) -> (Matrix4<f32>, Matrix4<f32>) {
         0.1,
         camera.range,
     );
+    let opengl_to_wgpu = Matrix4::new(
+        1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0, 1.0,
+    );
+
     (view_matrix, perspective)
 }
 fn get_camera_info(ecs: &mut ECS) -> Option<CamInfo> {

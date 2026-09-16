@@ -25,7 +25,9 @@ use crate::{events, wgpu};
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct Uniforms {
-    pub(crate) mvp: [[f32; 4]; 4],
+    pub(crate) m: [[f32; 4]; 4],
+    pub(crate) v: [[f32; 4]; 4],
+    pub(crate) p: [[f32; 4]; 4],
 }
 
 pub(crate) struct RenderingPipelinesAndBinds {

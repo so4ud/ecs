@@ -1,4 +1,4 @@
-use asset_importer::{postprocess::PostProcessSteps, Importer};
+use asset_importer::{Importer, postprocess::PostProcessSteps};
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
@@ -21,7 +21,7 @@ pub fn read_fbx(device: &wgpu::Device, fbx_path: String) -> (wgpu::Buffer, u32) 
 
     for i in 0..positions.len() {
         let position = [positions[i].x, positions[i].y, positions[i].z];
-
+        dbg!(&position);
         let normal = if i < normals.len() {
             [normals[i].x, normals[i].y, normals[i].z]
         } else {
