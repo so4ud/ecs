@@ -1,79 +1,26 @@
-use std::any::Any;
-use std::rc::Rc;
-use std::sync::Arc;
-use std::vec;
+use std::ops::Index;
 
-use macros::Component;
-use wgpu::wgt::TextureDescriptor;
-use wgpu::{Buffer, Extent3d, RenderPipelineDescriptor};
-use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
-use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop, OwnedDisplayHandle};
-use winit::window::{Window, WindowId};
-
-use crate::app::App;
-use crate::archetypes::{self};
 use crate::components::Component;
-use crate::ecs::ECS;
-use crate::events::{Update, WindowResized};
-use crate::plugins::wgpu_plugin::render_system;
 use crate::plugins::wgpu_plugin::state::State;
-use crate::{events, wgpu};
-
-pub fn wgpu_plugin(app: &mut App, event_loop: &winit::event_loop::ActiveEventLoop) {
-    let window = app.ecs.get_recource_mut::<Arc<Window>>().unwrap();
-    let mut state = pollster::block_on(State::new(
-        event_loop.owned_display_handle(),
-        window.clone(),
-    ));
-    app.ecs.insert_recource(TextureAtlas::new(&mut state));
-    app.ecs.recources.insert_recource(state);
-    app.add_system::<WindowResized>(resize_sys);
-    app.add_system::<Update>(render_system::render_system);
-}
-
-fn resize_sys(ecs: &mut ECS) {
-    let new_size = ecs.get_event::<WindowResized>().unwrap().clone();
-    // dbg!(&new_size);
-    let state = ecs.get_recource_mut::<State>().unwrap();
-
-    state.resize(winit::dpi::PhysicalSize {
-        width: new_size.new_size.0,
-        height: new_size.new_size.1,
-    });
-}
-
-#[derive(Debug, Clone, Copy, Component)]
-pub struct Camera {
-    fov: f32,
-    range: f32,
-}
+use json;
+use macros::Component;
 
 pub type TextureID = usize;
-pub type MeshID = usize;
 
-#[derive(Debug, Clone, Copy, Component)]
-pub struct Mesh {
-    /// index into the `MeshAtlas` recource
-    pub mesh_id: MeshID,
-}
 #[derive(Debug, Clone, Copy, Component)]
 pub struct Texture {
     /// index into the `TextureAtlas` recource
     pub texture_id: TextureID,
 }
-pub struct MeshAtlas {
-    /// vertex buffer and amount of vertecies in it
-    vertex_buffers: Vec<(wgpu::Buffer, u32)>,
-}
+
 pub struct TextureAtlas {
-    atlas: wgpu::Texture,
-    texture_views: wgpu::TextureView,
+    pub(crate) atlas: wgpu::Texture,
+    pub(crate) texture_views: wgpu::TextureView,
     // ! have to use this
-    texture_info: Vec<TextureInfo>,
+    pub(crate) texture_info: Vec<TextureInfo>,
 }
 impl TextureAtlas {
-    fn new(state: &mut State) -> Self {
+    pub(crate) fn new(state: &mut State) -> Self {
         let texture = state.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("main texture atlas"),
             size: wgpu::Extent3d {
@@ -85,7 +32,9 @@ impl TextureAtlas {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb, // Standard for sRGB PNGs
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -96,13 +45,63 @@ impl TextureAtlas {
         };
         pih.load_texture(
             state,
-            "assets/textures/guy.png",
-            Some("defoult texture".to_string()),
+            "assets/textures/texture_atlas_0.png",
+            Some("texture atlas 0".to_string()),
         );
         return pih;
     }
+    pub(crate) fn read_texture_data(&mut self) {
+        let file = std::fs::read("assets/textures/texture_infos.json")
+            .expect("no texture info file present");
+        let texture_data_json =
+            json::parse(&String::from_utf8(file).expect("texture data file not valid utf-8"))
+                .expect("texture data file not valid json");
+
+        for texture_data in texture_data_json.entries() {
+            let name = texture_data.0.to_string();
+            let atlas_id = texture_data
+                .1
+                .index("atlas_id")
+                .as_u32()
+                .expect(&format!("unexpected token at: {}", &name));
+            let origin0 = texture_data
+                .1
+                .index("origin")
+                .index(0)
+                .as_u32()
+                .expect(&format!("unexpected token at: {}", &name));
+            let origin1 = texture_data
+                .1
+                .index("origin")
+                .index(1)
+                .as_u32()
+                .expect(&format!("unexpected token at: {}", &name));
+            let origin = (origin0, origin1);
+
+            let size0 = texture_data
+                .1
+                .index("size")
+                .index(0)
+                .as_u32()
+                .expect(&format!("unexpected token at: {}", &name));
+            let size1 = texture_data
+                .1
+                .index("size")
+                .index(1)
+                .as_u32()
+                .expect(&format!("unexpected token at: {}", &name));
+            let size = (size0, size1);
+            let texture_info = TextureInfo {
+                name: Some(name),
+                size,
+                origin,
+                atlas_id,
+            };
+            self.texture_info.push(texture_info);
+        }
+    }
     /// png only
-    pub fn load_texture(
+    pub(crate) fn load_texture(
         &mut self,
         state: &mut State,
         file_path: impl AsRef<std::path::Path>,
@@ -136,12 +135,12 @@ impl TextureAtlas {
             size,
         );
 
-        self.texture_info.push(TextureInfo {
-            name,
-            size: dimensions,
-            start_position: (0, 0),
-            index: 0,
-        });
+        // self.texture_info.push(TextureInfo {
+        //     name,
+        //     size: dimensions,
+        //     origin: (0, 0),
+        //     atlas_id: 0,
+        // });
         return self.texture_info.len() - 1;
     }
     pub fn get_texture(&self, texture_id: TextureID) -> (&wgpu::TextureView, &TextureInfo) {
@@ -153,13 +152,14 @@ impl TextureAtlas {
 }
 // ! encoder.copy_texture_to_texture(source, destination, Extent3d {depth_or_array_layers});
 
+#[derive(Debug)]
 pub struct TextureInfo {
     pub name: Option<String>,
     /// size in pixels
     pub size: (u32, u32),
     /// start position in the `TextureAtlas`, top-left corner
-    pub start_position: (u32, u32),
+    pub origin: (u32, u32),
     /// index into `TextureAtlas.atlas`
-    pub index: usize,
+    pub atlas_id: u32,
     // format: wgpu::TextureFormat,
 }

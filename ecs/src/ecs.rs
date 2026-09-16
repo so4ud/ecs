@@ -26,7 +26,7 @@ impl ECS {
     }
     pub fn spawn_entity(&mut self) -> EntityID {
         for i in 0..self.entities.entity_info.len() {
-            let info = self.entities.entity_info[i];
+            let info = &self.entities.entity_info[i];
             match info {
                 None => {
                     self.entities.entity_info[i] = Some(0);
@@ -65,7 +65,7 @@ impl ECS {
             self.compoents.insert_component(component, entity_id);
         }
 
-        match self.entities.entity_info[entity_id] {
+        match &self.entities.entity_info[entity_id] {
             Option::Some(signature) => {
                 self.entities.entity_info[entity_id] = Some(signature | component_signature)
             }

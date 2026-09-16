@@ -10,8 +10,8 @@ impl Entities {
         }
     }
     pub fn is_alive(&self, entity_id: EntityID) -> bool {
-        if self.entity_info.len() > 0 && (entity_id == 0) {
-        } else if self.entity_info.len() <= entity_id + 1 {
+        if self.entity_info.len() > 0 {
+        } else if self.entity_info.len() - 1 < entity_id {
             return false;
         }
         match &self.entity_info[entity_id] {

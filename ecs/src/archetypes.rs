@@ -37,13 +37,13 @@ pub struct Parent {
 }
 #[derive(Debug, Clone, Copy, Component)]
 pub struct Position {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 #[derive(Debug, Clone, Copy, Component)]
 pub struct Orientation {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }

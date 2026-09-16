@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "new_ecs",
+    "ecs",
     "macros",
 ]
 resolver = "1"

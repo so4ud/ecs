@@ -1,0 +1,22 @@
+{
+    "red_texture": {
+        "atlas_id": 0,
+        "origin": [1248, 0],
+        "size": [256, 256]
+    },
+    "cube_texture": {
+        "atlas_id": 0,
+        "origin": [0, 0],
+        "size": [512, 512]
+    },
+    "guy_texture": {
+        "atlas_id": 0,
+        "origin": [512, 0],
+        "size": [736, 691]
+    },
+    "no_signal_texture_texture": {
+        "atlas_id": 0,
+        "origin": [828, 1616],
+        "size": [3268, 2480]
+    } 
+}
