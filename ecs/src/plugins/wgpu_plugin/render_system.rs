@@ -122,13 +122,13 @@ fn get_entity_render_info<'a>(ecs: &'a ECS, entity_id: EntityID) -> Option<Entit
 }
 fn calc_camera_maricies(camera: &CamInfo) -> (Matrix4<f32>, Matrix4<f32>) {
     let rot = Matrix3::from(Euler {
-        x: Deg(camera.angx),
+        x: Deg(-camera.angx),
         y: Deg(camera.angy),
         z: Deg(camera.angz),
     });
-    let rotx = Matrix3::from_angle_x(Rad(camera.angx.to_radians()));
-    let roty = Matrix3::from_angle_y(Rad(camera.angy.to_radians()));
-    let rotz = Matrix3::from_angle_z(Rad(camera.angz.to_radians()));
+    let rotx = Matrix3::from_angle_x(Deg(-camera.angx));
+    let roty = Matrix3::from_angle_y(Deg(camera.angy));
+    let rotz = Matrix3::from_angle_z(Deg(camera.angz));
 
     let eye = Point3 {
         x: camera.posx,
@@ -136,18 +136,13 @@ fn calc_camera_maricies(camera: &CamInfo) -> (Matrix4<f32>, Matrix4<f32>) {
         z: camera.posz,
     };
     let center = eye
-        + (rotx
-            * roty
+        + (rot
             * Vector3 {
                 x: 0.0,
                 y: 0.0,
                 z: 1.0,
             }); // point in fornt of the camera (rotates)
-    let center = Point3 {
-        x: 0.0f32,
-        y: 0.0,
-        z: 01.0,
-    }; // point in fornt of the camera (rotates)
+
     let up = Vector3 {
         x: 0.0,
         y: 1.0,
@@ -169,7 +164,7 @@ fn calc_camera_maricies(camera: &CamInfo) -> (Matrix4<f32>, Matrix4<f32>) {
         1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0, 1.0,
     );
 
-    (view_matrix, perspective)
+    (view_matrix, opengl_to_wgpu * perspective)
 }
 fn get_camera_info(ecs: &mut ECS) -> Option<CamInfo> {
     let mut caminfo = None;

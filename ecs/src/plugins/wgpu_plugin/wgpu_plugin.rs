@@ -28,6 +28,8 @@ pub(crate) struct Uniforms {
     pub(crate) m: [[f32; 4]; 4],
     pub(crate) v: [[f32; 4]; 4],
     pub(crate) p: [[f32; 4]; 4],
+    pub(crate) origin: [f32; 2],
+    pub(crate) scale: [f32; 2],
 }
 
 pub(crate) struct RenderingPipelinesAndBinds {

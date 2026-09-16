@@ -278,10 +278,18 @@ impl State {
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
+            let origin = texture_info.unwrap().origin;
+            let origin = [origin.0 as f32, origin.1 as f32];
+            let origin = [origin[0] / 4096.0, origin[1] / 4096.0];
+            let scale = texture_info.unwrap().size;
+            let scale = [scale.0 as f32, scale.1 as f32];
+            let scale = [scale[0] / 4096.0, scale[1] / 4096.0];
             let uniforms = Uniforms {
                 m: m.into(),
                 v: v.into(),
                 p: p.into(),
+                origin,
+                scale,
             };
             self.queue
                 .write_buffer(&uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));

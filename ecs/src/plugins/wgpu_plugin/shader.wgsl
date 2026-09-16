@@ -2,6 +2,8 @@ struct Uniforms {
     m: mat4x4<f32>,
     v: mat4x4<f32>,
     p: mat4x4<f32>,
+    origin: vec2<f32>,
+    scale: vec2<f32>,
 }
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms; 
@@ -23,11 +25,11 @@ struct VertexOutput {
 @vertex
 fn vs_main(model: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    var ses =  uniforms.m * vec4f(model.position, 1.0); 
-    ses.y = (ses.y + 1) / 2;
+    var ses =  uniforms.p * uniforms.v * uniforms.m * vec4f(model.position, 1.0); 
+    // ses.y = (ses.y + 1) / 2;
     out.clip_position = ses;
     // out.clip_position =  uniforms.v * vec4f(model.position, 1.0); 
-    out.uv = vec2<f32>(model.uv); 
+    out.uv = (vec2<f32>(model.uv) * uniforms.scale) + uniforms.origin; 
     return out;
 }
 
