@@ -7,8 +7,8 @@ use crate::{
     },
 };
 use cgmath::{
-    self, Angle, Basis3, Deg, Euler, Matrix3, Matrix4, Point3, Rad, Vector3, Vector4, frustum,
-    perspective,
+    self, Angle, Basis3, Deg, Euler, InnerSpace, Matrix3, Matrix4, Point3, Rad, Vector2, Vector3,
+    Vector4, frustum, perspective,
 };
 use wgpu::Buffer;
 // cehck for what entities have and shi
@@ -32,19 +32,15 @@ pub fn render_system(ecs: &mut ECS) {
     for entity_id in ecs.iter_over_alive_entity_ids() {
         if ecs.has_component_immut::<Mesh>(entity_id) {
             let entity_render_info = get_entity_render_info(&ecs, entity_id).unwrap();
-            // dbg!(&entity_render_info.posx);
-            // dbg!(&entity_render_info.posy);
-            // dbg!(&entity_render_info.posz);
             let translation = Matrix4::from_translation(Vector3 {
                 x: entity_render_info.posx,
                 y: entity_render_info.posy,
                 z: entity_render_info.posz,
             });
-            let rotation = Matrix4::from(Euler {
-                x: Deg(entity_render_info.angx),
-                y: Deg(entity_render_info.angy),
-                z: Deg(entity_render_info.angz),
-            });
+            let rotx = Matrix4::from_angle_x(Deg(entity_render_info.angx));
+            let roty = Matrix4::from_angle_y(Deg(360.0 - (entity_render_info.angy % 360.0)));
+            let rotz = Matrix4::from_angle_z(Deg(entity_render_info.angz));
+            let rotation = roty * rotx * rotz;
             // ! maybe add something later
             let scale = Matrix4::from_scale(0.5f32);
 
@@ -136,7 +132,9 @@ fn calc_camera_maricies(camera: &CamInfo) -> (Matrix4<f32>, Matrix4<f32>) {
         z: camera.posz,
     };
     let center = eye
-        + (rot
+        + (roty
+            * rotx
+            * rotz
             * Vector3 {
                 x: 0.0,
                 y: 0.0,
@@ -147,12 +145,7 @@ fn calc_camera_maricies(camera: &CamInfo) -> (Matrix4<f32>, Matrix4<f32>) {
         x: 0.0,
         y: 1.0,
         z: 0.0,
-    }; // point above of the camera (rotates)
-    // let up = Vector3 {
-    //     x: up.x,
-    //     y: up.y,
-    //     z: up.z,
-    // };
+    };
     let view_matrix = cgmath::Matrix4::look_at_rh(eye, center, up);
     let perspective = perspective(
         Rad(camera.fovy.to_radians()),
@@ -169,7 +162,12 @@ fn calc_camera_maricies(camera: &CamInfo) -> (Matrix4<f32>, Matrix4<f32>) {
 fn get_camera_info(ecs: &mut ECS) -> Option<CamInfo> {
     let mut caminfo = None;
     let dimensions = ecs.get_recource_ref::<State>().unwrap().size.clone();
-    let aspect_ratio = dimensions.width as f32 / dimensions.height as f32;
+    let aspect_ratio = if dimensions.width == 0 || dimensions.height == 0 {
+        1.0
+    } else {
+        dimensions.width as f32 / dimensions.height as f32
+    };
+
     for entity_id in ecs.iter_over_alive_entity_ids() {
         if ecs.has_component_immut::<Camera>(entity_id) {
             let fovy;

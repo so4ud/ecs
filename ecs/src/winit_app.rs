@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use winit::{
     application::ApplicationHandler,
-    event::WindowEvent,
+    event::{
+        DeviceEvent::{self, Button, MouseMotion},
+        WindowEvent,
+    },
     event_loop::ActiveEventLoop,
     window::{Window, WindowId},
 };
@@ -22,6 +25,20 @@ impl ApplicationHandler for App {
             window.request_redraw();
             self.ecs.insert_recource(window);
             self.run_plugins(event_loop);
+        }
+    }
+    fn device_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        device_id: winit::event::DeviceId,
+        event: DeviceEvent,
+    ) {
+        match event {
+            DeviceEvent::MouseMotion { delta } => {
+                let event = crate::plugins::keys_plugin::MouseMotion { delta };
+                self.ecs.push_event(event);
+            }
+            _ => (),
         }
     }
 
@@ -45,6 +62,16 @@ impl ApplicationHandler for App {
                 self.update();
             }
 
+            WindowEvent::KeyboardInput {
+                device_id,
+                event,
+                is_synthetic,
+            } => {
+                let key = event.logical_key;
+                let is_pressed = event.state.is_pressed();
+                let event = crate::plugins::keys_plugin::KeyboardInput { key, is_pressed };
+                self.ecs.push_event(event);
+            }
             _ => (),
         }
     }

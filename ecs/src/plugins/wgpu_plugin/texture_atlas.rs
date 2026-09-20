@@ -4,6 +4,7 @@ use crate::components::Component;
 use crate::plugins::wgpu_plugin::state::State;
 use json;
 use macros::Component;
+use wgpu::TextureFormat;
 
 pub type TextureID = usize;
 

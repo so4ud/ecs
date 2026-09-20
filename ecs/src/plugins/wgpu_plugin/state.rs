@@ -3,9 +3,11 @@ use std::num::NonZero;
 use std::sync::Arc;
 
 use wgpu::util::DeviceExt;
+use wgpu::wgt::{TextureDescriptor, TextureViewDescriptor};
 use wgpu::{
-    BindGroupLayout, Buffer, Extent3d, RenderPipeline, RenderPipelineDescriptor, Texture,
-    TextureView,
+    BindGroupLayout, Buffer, DepthBiasState, DepthStencilState, Extent3d,
+    RenderPassDepthStencilAttachment, RenderPipeline, RenderPipelineDescriptor, StencilState,
+    Texture, TextureView,
 };
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
@@ -152,7 +154,18 @@ impl State {
                     conservative: false,
                 },
 
-                depth_stencil: None, // Set up if you need a depth buffer for 3D depth-testing
+                depth_stencil: Some(DepthStencilState {
+                    format: wgpu::TextureFormat::Depth32Float,
+                    depth_write_enabled: Some(true),
+                    depth_compare: Some(wgpu::CompareFunction::Less),
+                    stencil: StencilState {
+                        front: wgpu::StencilFaceState::default(),
+                        back: wgpu::StencilFaceState::default(),
+                        read_mask: 0,
+                        write_mask: 0,
+                    },
+                    bias: DepthBiasState::default(),
+                }), // Set up if you need a depth buffer for 3D depth-testing
 
                 multisample: wgpu::MultisampleState {
                     count: 1, // Standard 1x sampling (Anti-aliasing config)
@@ -194,12 +207,11 @@ impl State {
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        // dbg!(&new_size);
-        self.size = new_size;
-
-        if self.size.width != 0 && self.size.height != 0 {
-            self.configure_surface();
+        if self.size.width == 0 || self.size.height == 0 {
+            return;
         }
+        self.size = new_size;
+        self.configure_surface();
     }
 
     pub fn render(
@@ -213,6 +225,9 @@ impl State {
         render_pipeline: &RenderPipeline,
         bind_group_layout: &BindGroupLayout,
     ) {
+        if self.size.width == 0 || self.size.height == 0 {
+            return;
+        }
         let surface_texture = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture) => texture,
             wgpu::CurrentSurfaceTexture::Occluded | wgpu::CurrentSurfaceTexture::Timeout => return,
@@ -248,86 +263,126 @@ impl State {
         let mut encoder = self.device.create_command_encoder(&Default::default());
         // Create the renderpass which will clear the screen.
         let size = self.size.clone();
-        // dbg!(&size);
+        let stencil_texture = self.device.create_texture(&TextureDescriptor {
+            label: Some("stecil texture"),
+            size: Extent3d {
+                width: size.width,
+                height: size.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float, // Standard for sRGB PNGs
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        let stencil_view = stencil_texture.create_view(&TextureViewDescriptor {
+            label: None,
+            format: Some(wgpu::TextureFormat::Depth32Float),
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            usage: Some(
+                wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::COPY_DST
+                    | wgpu::TextureUsages::COPY_SRC
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            ),
+            base_array_layer: 0,
+            aspect: wgpu::TextureAspect::DepthOnly,
+            base_mip_level: 0,
+            mip_level_count: Some(1),
+            array_layer_count: Some(1),
+        });
 
-        if size.width != 0 && size.height != 0 {
-            let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &texture_view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.15,
-                            g: 0.15,
-                            b: 0.15,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
+        let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: None,
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                        r: 0.15,
+                        g: 0.15,
+                        b: 0.15,
+                        a: 1.0,
+                    }),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: &stencil_view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: wgpu::StoreOp::Store,
+                }),
+
+                stencil_ops: None,
+            }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        let uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("MVP Uniform Buffer"),
+            size: std::mem::size_of::<Uniforms>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let origin = texture_info.unwrap().origin;
+        let origin = [origin.0 as f32, origin.1 as f32];
+        let origin = [origin[0] / 4096.0, origin[1] / 4096.0];
+        let scale = texture_info.unwrap().size;
+        let scale = [scale.0 as f32, scale.1 as f32];
+        let scale = [scale[0] / 4096.0, scale[1] / 4096.0];
+        let uniforms = Uniforms {
+            m: m.into(),
+            v: v.into(),
+            p: p.into(),
+            origin,
+            scale,
+        };
+        self.queue
+            .write_buffer(&uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+
+        let sampler = self
+            .device
+            .create_sampler(&wgpu::SamplerDescriptor::default());
+        if texture.is_some() {
+            let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Texture Bind Group"),
+                layout: &bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: uniform_buffer.as_entire_binding(),
                     },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&sampler),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(&texture.unwrap()),
+                    },
+                ],
             });
-            let uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("MVP Uniform Buffer"),
-                size: std::mem::size_of::<Uniforms>() as u64,
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-            let origin = texture_info.unwrap().origin;
-            let origin = [origin.0 as f32, origin.1 as f32];
-            let origin = [origin[0] / 4096.0, origin[1] / 4096.0];
-            let scale = texture_info.unwrap().size;
-            let scale = [scale.0 as f32, scale.1 as f32];
-            let scale = [scale[0] / 4096.0, scale[1] / 4096.0];
-            let uniforms = Uniforms {
-                m: m.into(),
-                v: v.into(),
-                p: p.into(),
-                origin,
-                scale,
-            };
-            self.queue
-                .write_buffer(&uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+            renderpass.set_bind_group(0, &bind_group, &[]);
 
-            let sampler = self
-                .device
-                .create_sampler(&wgpu::SamplerDescriptor::default());
-            if texture.is_some() {
-                let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("Texture Bind Group"),
-                    layout: &bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: uniform_buffer.as_entire_binding(),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: wgpu::BindingResource::Sampler(&sampler),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 2,
-                            resource: wgpu::BindingResource::TextureView(&texture.unwrap()),
-                        },
-                    ],
-                });
-                renderpass.set_bind_group(0, &bind_group, &[]);
-
-                renderpass.set_vertex_buffer(0, vertex_buffer.as_ref().unwrap().0.slice(..));
-                renderpass.set_pipeline(render_pipeline);
-                renderpass.draw(0..vertex_buffer.as_ref().unwrap().1, 0..1);
-            }
-
-            drop(renderpass);
-
-            self.queue.submit([encoder.finish()]);
-            self.window.pre_present_notify();
-            surface_texture.present();
+            renderpass.set_vertex_buffer(0, vertex_buffer.as_ref().unwrap().0.slice(..));
+            renderpass.set_pipeline(render_pipeline);
+            renderpass.draw(0..vertex_buffer.as_ref().unwrap().1, 0..1);
         }
+
+        drop(renderpass);
+
+        self.queue.submit([encoder.finish()]);
+        self.window.pre_present_notify();
+        surface_texture.present();
     }
+
+    pub(crate) fn init_renderpass() {}
 }
