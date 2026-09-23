@@ -72,7 +72,6 @@ impl App {
             self.ecs.events.push_event(Update {
                 dv: Instant::now() - update_info.latest_update,
             });
-            update_info.latest_update = Instant::now();
         }
         let mut event_type_ids: Vec<TypeId> = self.ecs.events.events.iter().map(|i| i.0).collect();
 
@@ -85,6 +84,8 @@ impl App {
             self.ecs.events.events.pop_front();
         }
         self.ecs.events.swap_and_clear();
+        let update_info = self.ecs.get_recource_mut::<UpdateInfo>().unwrap();
+        update_info.latest_update = Instant::now();
     }
 }
 
@@ -143,7 +144,7 @@ impl<F1: Fn(&mut App) + 'static, F2: Fn(&mut App) + 'static, F3: Fn(&mut App) + 
         self.2.add_self_as_plugin(app);
     }
 }
-struct UpdateInfo {
-    is_first: bool,
-    latest_update: Instant,
+pub(crate) struct UpdateInfo {
+    pub(crate) is_first: bool,
+    pub(crate) latest_update: Instant,
 }

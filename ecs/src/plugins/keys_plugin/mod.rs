@@ -1,15 +1,20 @@
 use std::collections::HashMap;
 
-use crate::events::Event;
+use crate::{app::App, events::Event};
 use macros::Event;
 use winit::keyboard::Key;
+
+pub(crate) fn keys_plugin(app: &mut App) {
+    let held_keys = HeldKeys::new();
+    app.ecs.insert_recource(held_keys);
+}
 
 #[derive(Debug, Clone, Event)]
 pub struct KeyboardInput {
     pub key: winit::keyboard::Key,
     pub is_pressed: bool,
 }
-#[derive(Debug, Clone, Event)]
+#[derive(Debug, Copy, Clone, Event)]
 pub struct MouseMotion {
     pub delta: (f64, f64),
 }

@@ -14,17 +14,19 @@ pub mod systems;
 pub mod systemsex;
 mod winit_app;
 use crate::{
-    app::App,
+    app::{App, UpdateInfo},
     archetypes::{Orientation, Plugins, Position},
     ecs::{ECS, EntityID},
     events::{CloseRequested, Event, Startup, Update},
     plugins::{
-        keys_plugin::{KeyboardInput, MouseMotion},
+        keys_plugin::{HeldKeys, KeyboardInput, MouseMotion},
         wgpu_plugin::{self, Camera, read_fbx, state::State, vertex::Vertex},
     },
 };
 // use bevy_ecs;
 use asset_importer::{Importer, postprocess::PostProcessSteps};
+use cgmath::InnerSpace;
+use cgmath::{Deg, Matrix3, vec3};
 use components::Component;
 use macros::{Component, Event};
 use std::{
@@ -33,15 +35,20 @@ use std::{
     io::Write,
     ops::AddAssign,
     sync::Arc,
+    time::Instant,
     vec,
 };
 use wgpu::{self, Buffer, TextureView, util::DeviceExt};
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
-    keyboard::Key,
+    keyboard::{Key, NamedKey, SmolStr},
     window::Window,
 };
 // todo add app.query()
+struct FrameCount {
+    amount: u32,
+    stamp: Instant,
+}
 fn main() {
     let mut app = App::new();
     app.add_plugins(Plugins::default());
@@ -50,6 +57,10 @@ fn main() {
         std::process::exit(0);
     });
     app.add_system::<Startup>(|ecs| {
+        ecs.insert_recource(FrameCount {
+            amount: 0,
+            stamp: Instant::now(),
+        });
         let state = ecs.get_recource_mut::<State>().unwrap();
         let vertex_buffer = read_fbx(&state.device, "assets/models/блять.fbx".to_string());
         let vertex_buffer1 = read_fbx(&state.device, "assets/models/guy.fbx".to_string());
@@ -183,6 +194,94 @@ fn main() {
                 if oreintation.x < -89.0 {
                     oreintation.x = -89.0;
                 }
+            }
+            _ => (),
+        }
+    });
+    app.add_system::<Update>(|ecs| {
+        let mut cam_id = None;
+        for id in ecs.iter_over_alive_entity_ids() {
+            if ecs.has_component_immut::<Camera>(id) && ecs.has_component_immut::<Camera>(id) {
+                cam_id = Some(id);
+                break;
+            }
+        }
+        let held_keys = ecs.get_recource_ref::<HeldKeys>().unwrap();
+        let velocity = 150.0f32;
+        match cam_id {
+            Some(id) => {
+                let ori = ecs.get_component_ref::<Orientation>(id).unwrap().clone();
+                let mut pos = ecs.get_component_ref::<Position>(id).unwrap().clone();
+                let dv = Instant::now()
+                    - ecs
+                        .get_recource_ref::<UpdateInfo>()
+                        .unwrap()
+                        .latest_update
+                        .clone();
+                let dv = dv.as_secs_f32();
+
+                if held_keys.is_pressed(&Key::Character(SmolStr::from("w"))) {
+                    let forward = vec3(0.0, 0.0, 1.0f32);
+                    let rot = Matrix3::from_angle_y(Deg(ori.y));
+                    let forward = rot * forward * velocity * dv;
+
+                    pos = Position {
+                        x: pos.x + forward.x,
+                        y: pos.y + forward.y,
+                        z: pos.z + forward.z,
+                    };
+                }
+                if held_keys.is_pressed(&Key::Character(SmolStr::from("s"))) {
+                    let forward = vec3(0.0, 0.0, 1.0f32);
+                    let rot = Matrix3::from_angle_y(Deg(ori.y + 180.0));
+                    let forward = rot * forward * velocity * dv;
+
+                    pos = Position {
+                        x: pos.x + forward.x,
+                        y: pos.y + forward.y,
+                        z: pos.z + forward.z,
+                    };
+                }
+                if held_keys.is_pressed(&Key::Character(SmolStr::from("a"))) {
+                    let forward = vec3(0.0, 0.0, 1.0f32);
+                    let rot = Matrix3::from_angle_y(Deg(ori.y + 90.0));
+                    let forward = rot * forward * velocity * dv;
+                    pos = Position {
+                        x: pos.x + forward.x,
+                        y: pos.y + forward.y,
+                        z: pos.z + forward.z,
+                    };
+                }
+                if held_keys.is_pressed(&Key::Character(SmolStr::from("d"))) {
+                    let forward = vec3(0.0, 0.0, 1.0f32);
+                    let rot = Matrix3::from_angle_y(Deg(ori.y + 260.0));
+                    let forward = rot * forward * velocity * dv;
+                    pos = Position {
+                        x: pos.x + forward.x,
+                        y: pos.y + forward.y,
+                        z: pos.z + forward.z,
+                    };
+                }
+                if held_keys.is_pressed(&Key::Named(NamedKey::Space)) {
+                    let up = vec3(0.0, 1.0, 0.0f32);
+                    let up = up * velocity * dv;
+                    pos = Position {
+                        x: pos.x + up.x,
+                        y: pos.y + up.y,
+                        z: pos.z + up.z,
+                    };
+                }
+                if held_keys.is_pressed(&Key::Named(NamedKey::Control)) {
+                    let down = vec3(0.0, -1.0, 0.0f32);
+                    let down = down * velocity * dv;
+                    pos = Position {
+                        x: pos.x + down.x,
+                        y: pos.y + down.y,
+                        z: pos.z + down.z,
+                    };
+                }
+
+                *ecs.get_component_mut::<Position>(id).unwrap() = pos;
             }
             _ => (),
         }

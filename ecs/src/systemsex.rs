@@ -45,12 +45,6 @@ struct BoxedSys<F, Q> {
     f: F,
     _p: PhantomData<Q>,
 }
-// impl<F: FnMut(Q) + 'static, Q: 'static> AddSys for F {
-//     fn add(self, s: &mut SystemStorage) {}
-// }
-// impl<F: FnMut(Q::Item) + 'static, Q: Qerry + 'static> AddSys for F {
-//     fn add(self, s: &mut SystemStorage) {}
-// }
 
 trait Qerry {
     type Item;

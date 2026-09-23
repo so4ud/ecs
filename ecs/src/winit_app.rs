@@ -10,7 +10,11 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use crate::{app::App, events, plugins::wgpu_plugin::state::State};
+use crate::{
+    app::App,
+    events,
+    plugins::{keys_plugin::HeldKeys, wgpu_plugin::state::State},
+};
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -55,11 +59,11 @@ impl ApplicationHandler for App {
                 // dbg!(&size);
             }
             WindowEvent::RedrawRequested => {
+                self.update();
                 self.ecs
                     .get_recource_ref::<Arc<Window>>()
                     .unwrap()
                     .request_redraw();
-                self.update();
             }
 
             WindowEvent::KeyboardInput {
@@ -67,9 +71,18 @@ impl ApplicationHandler for App {
                 event,
                 is_synthetic,
             } => {
-                let key = event.logical_key;
+                let key = event.logical_key.clone();
                 let is_pressed = event.state.is_pressed();
-                let event = crate::plugins::keys_plugin::KeyboardInput { key, is_pressed };
+                let event = crate::plugins::keys_plugin::KeyboardInput {
+                    key: key.clone(),
+                    is_pressed: is_pressed.clone(),
+                };
+                let held_keys = self.ecs.get_recource_mut::<HeldKeys>().unwrap();
+                if event.is_pressed == true {
+                    held_keys.press_key(&key);
+                } else {
+                    held_keys.release_key(&key);
+                }
                 self.ecs.push_event(event);
             }
             _ => (),

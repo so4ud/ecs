@@ -6,15 +6,22 @@ use crate::{
 use macros::Component;
 
 /// ! add more when more default plugins are developed
-pub struct Plugins(fn(&mut App, &winit::event_loop::ActiveEventLoop));
+pub struct Plugins(
+    fn(&mut App, &winit::event_loop::ActiveEventLoop),
+    fn(&mut App),
+);
 impl Default for Plugins {
     fn default() -> Self {
-        Self(crate::plugins::wgpu_plugin::wgpu_plugin)
+        Self(
+            crate::plugins::wgpu_plugin::wgpu_plugin,
+            crate::plugins::keys_plugin::keys_plugin,
+        )
     }
 }
 impl AddPlugIn for Plugins {
     fn add_self_as_plugin(self, app: &mut App) {
         app.add_plugin_active_event_loop(self.0);
+        app.add_plugin(self.1);
     }
 }
 /// `runtime` is a function that takes ownership over the `App` once `App::run()` is called, some plugins may add their own runtime.
