@@ -2,7 +2,7 @@ use std::any::{Any, TypeId};
 
 use crate::{
     Event,
-    components::{self, Component},
+    components::{self, Component, ComponentLine},
     entities, events, recources,
 };
 use uint::construct_uint;
@@ -58,13 +58,13 @@ impl ECS {
         let component_signature = self.compoents.type_to_sig[&type_id];
 
         let component_functions = self.compoents.sig_to_data.clone();
-        for i in &mut self.compoents.component_lines {
-            for func in &component_functions {
-                if self.compoents.sig_to_type[func.0] == *i.0 {
-                    (func.1.push_none)(i.1, entity_id + 1);
-                }
-            }
-        }
+        // for i in &mut self.compoents.component_lines {
+        //     for func in &component_functions {
+        //         if self.compoents.sig_to_type[func.0] == *i.0 {
+        //             (func.1.push_none)(i.1, entity_id + 1);
+        //         }
+        //     }
+        // }
 
         unsafe {
             self.compoents.insert_component(component, entity_id);
@@ -99,15 +99,16 @@ impl ECS {
             .component_lines
             .get_mut(&type_id)
             .unwrap()
-            .downcast_mut::<Vec<Option<T>>>()
+            .downcast_mut::<ComponentLine<T>>()
             .unwrap();
 
-        if component_line[entity_id].is_none() {
+        // if component_line[entity_id].is_none() {
+        if component_line.get(entity_id).is_none() {
             return Err(String::from("entity doesnt have component"));
         }
 
-        component = component_line[entity_id].clone().unwrap();
-        component_line[entity_id] = None;
+        component = component_line.remove(entity_id);
+        // component_line.insert(entity_id, None);
 
         match self.entities.entity_info[entity_id] {
             Option::Some(signature) => {
@@ -117,7 +118,7 @@ impl ECS {
             Option::None => self.entities.entity_info[entity_id] = Some(0.into()),
         }
 
-        return Ok(component);
+        return Ok(component.unwrap().unwrap());
     }
     pub fn despawn_entity(&mut self, entity_id: EntityID) -> Result<(), String> {
         if self.entities.entity_info.len() < entity_id + 1 {
@@ -137,10 +138,10 @@ impl ECS {
             .component_lines
             .get(&type_id)
             .unwrap()
-            .downcast_ref::<Vec<Option<T>>>()
+            .downcast_ref::<ComponentLine<T>>()
             .unwrap();
 
-        let ses = component_line[entity_id].as_ref();
+        let ses = component_line.get(entity_id).unwrap().as_ref();
         return ses;
     }
     pub fn get_component_mut<'a, T: components::Component + 'static>(
@@ -153,10 +154,10 @@ impl ECS {
             .component_lines
             .get_mut(&type_id)
             .unwrap()
-            .downcast_mut::<Vec<Option<T>>>()
+            .downcast_mut::<ComponentLine<T>>()
             .unwrap();
 
-        let ses = component_line[entity_id].as_mut();
+        let ses = component_line.get_mut(entity_id).unwrap().as_mut();
         return ses;
     }
     pub fn pop_recource<T: 'static>(&mut self) -> Option<T> {

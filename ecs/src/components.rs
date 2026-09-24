@@ -3,7 +3,10 @@ use std::{
     collections::HashMap,
 };
 
+use sparseset::SparseSet;
+
 use crate::ecs::{EntityID, Sigtype, U512};
+pub(crate) type ComponentLine<T> = SparseSet<Option<T>>;
 
 pub struct Components {
     /// HasMap<TypeId, Box<Vec<Option<T: Component>>>,
@@ -38,10 +41,10 @@ impl Components {
         // get metadata in order
         self.sig_to_type.insert(sig, id);
         self.type_to_sig.insert(id, sig);
-        self.sig_to_data
-            .insert(sig, ComponentData::new(T::die, T::add_nones_to_reach_index));
+        self.sig_to_data.insert(sig, ComponentData::new(T::die));
+
         // insert the "component line" :)
-        let component_line: Vec<Option<T>> = vec![];
+        let component_line: ComponentLine<T> = SparseSet::with_capacity(0xFFF);
         self.component_lines.insert(id, Box::new(component_line));
     }
 
@@ -57,18 +60,20 @@ impl Components {
             .component_lines
             .get_mut(&id)
             .unwrap()
-            .downcast_mut::<Vec<Option<T>>>()
+            .downcast_mut::<ComponentLine<T>>()
             .unwrap();
 
         if component_line.len() == entity_id {
-            component_line.push(Some(component));
+            component_line.insert(component_line.len(), Some(component));
             return;
         }
-        if component_line.len() < entity_id {
-            panic!();
+        if component_line.capacity() < entity_id {
+            eprint!("component capacity: {}\n", component_line.capacity());
+            eprint!("entity id: {}\n", entity_id);
+            panic!("ran out of component capcity");
         }
 
-        component_line[entity_id] = Some(component);
+        component_line.insert(entity_id, Some(component));
     }
     pub fn pop_component<T: Component + Clone + 'static>(&self, entity_id: EntityID) -> Option<T> {
         let id = TypeId::of::<T>();
@@ -76,14 +81,14 @@ impl Components {
             .component_lines
             .get(&id)
             .unwrap()
-            .downcast_ref::<Vec<Option<T>>>()
+            .downcast_ref::<ComponentLine<T>>()
             .unwrap();
 
         if component_line.len() < entity_id + 1 {
             return None;
         }
 
-        component_line[entity_id].clone()
+        component_line[entity_id].value.clone()
     }
 
     /// clears any owend stuff too... i hope
@@ -99,37 +104,39 @@ pub trait Component {
     where
         Self: Sized + 'static,
     {
-        let pih = component_line.downcast_mut::<Vec<Option<Self>>>().unwrap();
-        pih[index] = None;
+        let pih = component_line
+            .downcast_mut::<ComponentLine<Self>>()
+            .unwrap();
+        pih.insert(index, None);
     }
-    fn add_nones_to_reach_index(component_line: &mut Box<dyn Any>, index: usize)
-    where
-        Self: Sized + 'static,
-    {
-        // dbg!(component_line.is::<Vec<Option<Self>>>())
-        // dbg!(type_name::<Self>());
-        let pih = component_line.downcast_mut::<Vec<Option<Self>>>().unwrap();
-        let len = pih.len();
-        if len == 0 {
-        } else if index < len - 1 {
-            return;
-        }
+    // fn add_nones_to_reach_index(component_line: &mut Box<dyn Any>, index: usize)
+    // where
+    //     Self: Sized + 'static,
+    // {
+    //     // dbg!(component_line.is::<Vec<Option<Self>>>())
+    //     // dbg!(type_name::<Self>());
+    //     let pih = component_line.downcast_mut::<Vec<Option<Self>>>().unwrap();
+    //     let len = pih.len();
+    //     if len == 0 {
+    //     } else if index < len - 1 {
+    //         return;
+    //     }
 
-        for _ in 0..index - len {
-            pih.push(None);
-        }
-    }
+    //     for _ in 0..index - len {
+    //         pih.push(None);
+    //     }
+    // }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct ComponentData {
     /// takes a compoenent line and an index and drops data at that addres
     pub dealloc: fn(&mut Box<dyn Any>, usize),
-    /// pushes `None` to the component line
-    pub push_none: fn(&mut Box<dyn Any>, usize),
+    // /// pushes `None` to the component line
+    // pub push_none: fn(&mut Box<dyn Any>, usize),
 }
 impl ComponentData {
-    fn new(dealloc: fn(&mut Box<dyn Any>, usize), push_none: fn(&mut Box<dyn Any>, usize)) -> Self {
-        Self { dealloc, push_none }
+    fn new(dealloc: fn(&mut Box<dyn Any>, usize)) -> Self {
+        Self { dealloc }
     }
 }
