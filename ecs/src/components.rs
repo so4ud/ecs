@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
 };
 
-use crate::ecs::{EntityID, Sigtype};
+use crate::ecs::{EntityID, Sigtype, U512};
 
 pub struct Components {
     /// HasMap<TypeId, Box<Vec<Option<T: Component>>>,
@@ -30,10 +30,10 @@ impl Components {
         }
 
         // asing the type its signature
-        if self.sig_offset >= 127 {
+        if self.sig_offset >= 511 {
             panic!("TOO MANY COMPONENTS");
         }
-        let sig: Sigtype = 1 << self.sig_offset;
+        let sig: Sigtype = U512::from(1u8) << U512::from(self.sig_offset);
         self.sig_offset += 1;
         // get metadata in order
         self.sig_to_type.insert(sig, id);

@@ -18,7 +18,7 @@ pub struct KeyboardInput {
 pub struct MouseMotion {
     pub delta: (f64, f64),
 }
-
+#[derive(Debug, Clone)]
 pub struct HeldKeys {
     pub(crate) held_keys: HashMap<Key, bool>,
 }

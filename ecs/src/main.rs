@@ -12,7 +12,7 @@ pub mod query;
 pub mod recources;
 pub mod systems;
 pub mod systemsex;
-mod winit_app;
+pub mod winit_app;
 use crate::{
     app::{App, UpdateInfo},
     archetypes::{Orientation, Plugins, Position},
@@ -49,6 +49,7 @@ struct FrameCount {
     amount: u32,
     stamp: Instant,
 }
+
 fn main() {
     let mut app = App::new();
     app.add_plugins(Plugins::default());
@@ -68,26 +69,7 @@ fn main() {
         mesh_atlas.vertex_buffers.push(vertex_buffer);
         mesh_atlas.vertex_buffers.push(vertex_buffer1);
         // spawn renderable entity
-        let entity_id = ecs.spawn_entity();
-        ecs.attach_component(entity_id, wgpu_plugin::Mesh { mesh_id: 0 });
-        ecs.attach_component(entity_id, wgpu_plugin::Texture { texture_id: 0 });
-        ecs.attach_component(
-            entity_id,
-            Position {
-                x: 0.0,
-                y: 0.0,
-                z: 1.7,
-            },
-        );
-        ecs.attach_component(
-            entity_id,
-            Orientation {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-        );
-        // spawn camera
+
         let entity_id = ecs.spawn_entity();
         ecs.attach_component(
             entity_id,
@@ -101,7 +83,7 @@ fn main() {
             entity_id,
             Orientation {
                 x: 0.0,
-                y: 0.0,
+                y: 180.0,
                 z: 0.0,
             },
         );
@@ -112,21 +94,10 @@ fn main() {
                 range: 1024.0,
             },
         );
-        ecs.insert_recource(0f32);
+
         ecs.insert_recource(true);
     });
-    app.add_system::<Update>(|ecs| {
-        let mut counter = ecs.pop_recource::<f32>().unwrap();
-        let mut cam_id = 1;
 
-        let pos = ecs.get_component_mut::<Orientation>(0).unwrap();
-        pos.y = counter * 50.0;
-        counter += 0.01;
-        if counter > 360.0 {
-            counter -= 360.0;
-        }
-        ecs.insert_recource(counter);
-    });
     app.add_system::<KeyboardInput>(|ecs| {
         let event = ecs.get_event::<KeyboardInput>().unwrap().clone();
         if !event.is_pressed {
@@ -206,19 +177,13 @@ fn main() {
                 break;
             }
         }
+        let dv = ecs.get_event::<Update>().unwrap().as_secs() as f32;
         let held_keys = ecs.get_recource_ref::<HeldKeys>().unwrap();
         let velocity = 150.0f32;
         match cam_id {
             Some(id) => {
                 let ori = ecs.get_component_ref::<Orientation>(id).unwrap().clone();
                 let mut pos = ecs.get_component_ref::<Position>(id).unwrap().clone();
-                let dv = Instant::now()
-                    - ecs
-                        .get_recource_ref::<UpdateInfo>()
-                        .unwrap()
-                        .latest_update
-                        .clone();
-                let dv = dv.as_secs_f32();
 
                 if held_keys.is_pressed(&Key::Character(SmolStr::from("w"))) {
                     let forward = vec3(0.0, 0.0, 1.0f32);
@@ -286,8 +251,38 @@ fn main() {
             _ => (),
         }
     });
+    app.add_system::<KeyboardInput>(spawn_system);
     app.run();
 }
-fn flip_sing(number: i128) -> i128 {
-    !number + 1
+fn spawn_system(ecs: &mut ECS) {
+    let event = ecs.get_event::<KeyboardInput>().unwrap().clone();
+    let held_keys = ecs.get_recource_ref::<HeldKeys>().unwrap().clone();
+    if !event.is_pressed {
+        return;
+    }
+    match event.key {
+        Key::Character(c) => {
+            if &c.to_string()[..] == "j" {
+                let pos = ecs.get_component_ref::<Position>(0).unwrap().clone();
+
+                spawn_blyat_at_pos(ecs, pos);
+            }
+        }
+        _ => (),
+    }
+}
+
+fn spawn_blyat_at_pos(ecs: &mut ECS, pos: Position) {
+    let entity_id = ecs.spawn_entity();
+
+    ecs.attach_component(
+        entity_id,
+        Position {
+            x: pos.x,
+            y: pos.y,
+            z: pos.z,
+        },
+    );
+    ecs.attach_component(entity_id, wgpu_plugin::Mesh { mesh_id: 0 });
+    ecs.attach_component(entity_id, wgpu_plugin::Texture { texture_id: 0 });
 }

@@ -6,13 +6,15 @@ edition = "2024"
 
 [dependencies]
 asset-importer = "0.8.0"
-bevy_ecs = "0.19.1"
+# bevy_ecs = "0.19.1"
 bytemuck = "1.25.2"
 cgmath = "0.18.0"
 image = "0.25.10"
 json = "0.12.4"
 macros = { path = "../macros" }
 pollster = "1.0.1" 
+sparseset = "1.0.1"
+uint = "0.10.1"
 wgpu = "29.0.0"
 winit = "0.30.13"
 

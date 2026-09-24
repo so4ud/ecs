@@ -5,8 +5,13 @@ use crate::{
     components::{self, Component},
     entities, events, recources,
 };
+use uint::construct_uint;
 
-pub type Sigtype = u128;
+construct_uint! {
+    pub struct U512(8);
+}
+
+pub type Sigtype = U512;
 pub type EntityID = usize;
 
 pub struct ECS {
@@ -29,13 +34,13 @@ impl ECS {
             let info = &self.entities.entity_info[i];
             match info {
                 None => {
-                    self.entities.entity_info[i] = Some(0);
+                    self.entities.entity_info[i] = Some(0.into());
                     return i;
                 }
                 Some(_) => (),
             }
         }
-        self.entities.entity_info.push(Some(0));
+        self.entities.entity_info.push(Some(0u8.into()));
         let entity_id = self.entities.entity_info.len() - 1;
 
         return entity_id;
@@ -67,7 +72,7 @@ impl ECS {
 
         match &self.entities.entity_info[entity_id] {
             Option::Some(signature) => {
-                self.entities.entity_info[entity_id] = Some(signature | component_signature)
+                self.entities.entity_info[entity_id] = Some(*signature | component_signature)
             }
 
             Option::None => self.entities.entity_info[entity_id] = Some(component_signature),
@@ -109,7 +114,7 @@ impl ECS {
                 self.entities.entity_info[entity_id] = Some(signature ^ component_signature)
             }
 
-            Option::None => self.entities.entity_info[entity_id] = Some(0),
+            Option::None => self.entities.entity_info[entity_id] = Some(0.into()),
         }
 
         return Ok(component);

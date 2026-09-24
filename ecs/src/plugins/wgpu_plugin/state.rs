@@ -16,6 +16,7 @@ use winit::window::{Window, WindowId};
 
 use crate::app::App;
 use crate::ecs::ECS;
+use crate::plugins::wgpu_plugin::render_system::EntityRernderInfo;
 use crate::plugins::wgpu_plugin::vertex::Vertex;
 use crate::plugins::wgpu_plugin::{RenderingPipelinesAndBinds, TextureInfo, Uniforms};
 use crate::wgpu;
@@ -137,7 +138,7 @@ impl State {
                     entry_point: Some("fs_main"),
                     targets: &[Some(wgpu::ColorTargetState {
                         format: wgpu::TextureFormat::Bgra8UnormSrgb, // Match your surface/texture format
-                        blend: Some(wgpu::BlendState::REPLACE),
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                     compilation_options: wgpu::PipelineCompilationOptions::default(),
@@ -214,12 +215,9 @@ impl State {
         self.configure_surface();
     }
 
-    pub fn render(
+    pub(crate) fn render(
         &mut self,
-        vertex_buffer: Option<(&Buffer, u32)>,
-        texture: Option<&TextureView>,
-        texture_info: Option<&TextureInfo>,
-        m: [[f32; 4]; 4],
+        renderables: Vec<EntityRernderInfo>,
         v: [[f32; 4]; 4],
         p: [[f32; 4]; 4],
         render_pipeline: &RenderPipeline,
@@ -326,32 +324,33 @@ impl State {
             occlusion_query_set: None,
             multiview_mask: None,
         });
-        let uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("MVP Uniform Buffer"),
-            size: std::mem::size_of::<Uniforms>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let origin = texture_info.unwrap().origin;
-        let origin = [origin.0 as f32, origin.1 as f32];
-        let origin = [origin[0] / 4096.0, origin[1] / 4096.0];
-        let scale = texture_info.unwrap().size;
-        let scale = [scale.0 as f32, scale.1 as f32];
-        let scale = [scale[0] / 4096.0, scale[1] / 4096.0];
-        let uniforms = Uniforms {
-            m: m.into(),
-            v: v.into(),
-            p: p.into(),
-            origin,
-            scale,
-        };
-        self.queue
-            .write_buffer(&uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
 
-        let sampler = self
-            .device
-            .create_sampler(&wgpu::SamplerDescriptor::default());
-        if texture.is_some() {
+        for rendereble in renderables {
+            let uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("MVP Uniform Buffer"),
+                size: std::mem::size_of::<Uniforms>() as u64,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            let origin = rendereble.texture_info.origin;
+            let origin = [origin.0 as f32, origin.1 as f32];
+            let origin = [origin[0] / 4096.0, origin[1] / 4096.0];
+            let scale = rendereble.texture_info.size;
+            let scale = [scale.0 as f32, scale.1 as f32];
+            let scale = [scale[0] / 4096.0, scale[1] / 4096.0];
+            let uniforms = Uniforms {
+                m: rendereble.model_matrix.into(),
+                v: v.into(),
+                p: p.into(),
+                origin,
+                scale,
+            };
+            self.queue
+                .write_buffer(&uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+
+            let sampler = self
+                .device
+                .create_sampler(&wgpu::SamplerDescriptor::default());
             let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Texture Bind Group"),
                 layout: &bind_group_layout,
@@ -366,15 +365,15 @@ impl State {
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
-                        resource: wgpu::BindingResource::TextureView(&texture.unwrap()),
+                        resource: wgpu::BindingResource::TextureView(&rendereble.texture_atlas),
                     },
                 ],
             });
             renderpass.set_bind_group(0, &bind_group, &[]);
 
-            renderpass.set_vertex_buffer(0, vertex_buffer.as_ref().unwrap().0.slice(..));
+            renderpass.set_vertex_buffer(0, rendereble.mesh.0.slice(..));
             renderpass.set_pipeline(render_pipeline);
-            renderpass.draw(0..vertex_buffer.as_ref().unwrap().1, 0..1);
+            renderpass.draw(0..rendereble.mesh.1, 0..1);
         }
 
         drop(renderpass);

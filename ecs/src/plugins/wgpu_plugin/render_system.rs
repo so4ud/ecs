@@ -28,50 +28,36 @@ pub fn render_system(ecs: &mut ECS) {
     // todo fix matricies;
     let (view_matrix, perspective_matrix) = calc_camera_maricies(&camera);
     let mut state = ecs.pop_recource::<State>().unwrap();
+    let mut renderables: Vec<EntityRernderInfo> = vec![];
 
     for entity_id in ecs.iter_over_alive_entity_ids() {
         if ecs.has_component_immut::<Mesh>(entity_id) {
             let entity_render_info = get_entity_render_info(&ecs, entity_id).unwrap();
-            let translation = Matrix4::from_translation(Vector3 {
-                x: entity_render_info.posx,
-                y: entity_render_info.posy,
-                z: entity_render_info.posz,
-            });
-            let rotx = Matrix4::from_angle_x(Deg(entity_render_info.angx));
-            let roty = Matrix4::from_angle_y(Deg(360.0 - (entity_render_info.angy % 360.0)));
-            let rotz = Matrix4::from_angle_z(Deg(entity_render_info.angz));
-            let rotation = roty * rotx * rotz;
-            // ! maybe add something later
-            let scale = Matrix4::from_scale(0.5f32);
 
-            let model_matrix = translation * rotation * scale;
-            let mvp = model_matrix * view_matrix * perspective_matrix;
-
-            let ses = ecs
-                .get_recource_ref::<RenderingPipelinesAndBinds>()
-                .unwrap();
-            let entry = &ses.rendering_infos["3d"];
-            let render_pipeline = &entry.render_pipeline;
-            let bind_group_layout = &entry.bind_group_layout;
-
-            state.render(
-                Some(entity_render_info.mesh),
-                Some(entity_render_info.texture_atlas),
-                Some(entity_render_info.texture_info),
-                model_matrix.into(),
-                view_matrix.into(),
-                perspective_matrix.into(),
-                render_pipeline,
-                bind_group_layout,
-            );
+            renderables.push(entity_render_info);
         }
     }
+    let ses = ecs
+        .get_recource_ref::<RenderingPipelinesAndBinds>()
+        .unwrap();
+    let entry = &ses.rendering_infos["3d"];
+    let render_pipeline = &entry.render_pipeline;
+    let bind_group_layout = &entry.bind_group_layout;
+
+    state.render(
+        renderables,
+        view_matrix.into(),
+        perspective_matrix.into(),
+        render_pipeline,
+        bind_group_layout,
+    );
     ecs.insert_recource(state);
 }
 fn get_entity_render_info<'a>(ecs: &'a ECS, entity_id: EntityID) -> Option<EntityRernderInfo<'a>> {
     if !ecs.has_component_immut::<Mesh>(entity_id) {
         return None;
     }
+
     let mesh = ecs.get_component_ref::<Mesh>(entity_id).unwrap();
     let position = if ecs.has_component_immut::<Position>(entity_id) {
         let pos = ecs.get_component_ref::<Position>(entity_id).unwrap();
@@ -80,12 +66,14 @@ fn get_entity_render_info<'a>(ecs: &'a ECS, entity_id: EntityID) -> Option<Entit
         eprint!("entity_id with a `Mesh` has no `Position`, wich suspicius");
         (0.0, 0.0, 0.0)
     };
+
     let oreintation = if ecs.has_component_immut::<Orientation>(entity_id) {
         let oreintation = ecs.get_component_ref::<Orientation>(entity_id).unwrap();
         (oreintation.x, oreintation.y, oreintation.z)
     } else {
         (0.0, 0.0, 0.0)
     };
+
     let texture = if ecs.has_component_immut::<wgpu_plugin::Texture>(entity_id) {
         let texture_id = ecs
             .get_component_ref::<wgpu_plugin::Texture>(entity_id)
@@ -100,10 +88,25 @@ fn get_entity_render_info<'a>(ecs: &'a ECS, entity_id: EntityID) -> Option<Entit
         let texture_atlas = ecs.get_recource_ref::<wgpu_plugin::TextureAtlas>().unwrap();
         texture_atlas.get_texture(0)
     };
+
     let mesh = ecs
         .get_recource_ref::<MeshAtlas>()
         .unwrap()
         .get_mesh(mesh.mesh_id);
+    let translation = Matrix4::from_translation(Vector3 {
+        x: position.0,
+        y: position.1,
+        z: position.2,
+    });
+    let rotx = Matrix4::from_angle_x(Deg(oreintation.0));
+    let roty = Matrix4::from_angle_y(Deg(360.0 - (oreintation.1 % 360.0)));
+    let rotz = Matrix4::from_angle_z(Deg(oreintation.2));
+    let rotation = roty * rotx * rotz;
+    // ! maybe add something later
+    let scale = Matrix4::from_scale(0.5f32);
+
+    let model_matrix = translation * rotation * scale;
+
     Some(EntityRernderInfo {
         mesh,
         texture_atlas: texture.0,
@@ -114,6 +117,7 @@ fn get_entity_render_info<'a>(ecs: &'a ECS, entity_id: EntityID) -> Option<Entit
         angx: oreintation.0,
         angy: oreintation.1,
         angz: oreintation.2,
+        model_matrix: model_matrix.into(),
     })
 }
 fn calc_camera_maricies(camera: &CamInfo) -> (Matrix4<f32>, Matrix4<f32>) {
@@ -224,14 +228,15 @@ struct CamInfo {
     range: f32,
 }
 #[derive(Debug, Clone, Copy)]
-struct EntityRernderInfo<'a> {
-    mesh: (&'a Buffer, u32),
-    texture_atlas: &'a wgpu::TextureView,
-    texture_info: &'a wgpu_plugin::TextureInfo,
-    posx: f32,
-    posy: f32,
-    posz: f32,
-    angx: f32,
-    angy: f32,
-    angz: f32,
+pub(crate) struct EntityRernderInfo<'a> {
+    pub(crate) mesh: (&'a Buffer, u32),
+    pub(crate) texture_atlas: &'a wgpu::TextureView,
+    pub(crate) texture_info: &'a wgpu_plugin::TextureInfo,
+    pub(crate) posx: f32,
+    pub(crate) posy: f32,
+    pub(crate) posz: f32,
+    pub(crate) angx: f32,
+    pub(crate) angy: f32,
+    pub(crate) angz: f32,
+    pub(crate) model_matrix: [[f32; 4]; 4],
 }

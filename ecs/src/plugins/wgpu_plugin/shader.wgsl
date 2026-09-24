@@ -25,10 +25,8 @@ struct VertexOutput {
 @vertex
 fn vs_main(model: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    var ses =  uniforms.p * uniforms.v * uniforms.m * vec4f(model.position, 1.0); 
-    // ses.y = (ses.y + 1) / 2;
-    out.clip_position = ses;
-    // out.clip_position =  uniforms.v * vec4f(model.position, 1.0); 
+    var ses =  uniforms.p * uniforms.v * uniforms.m * vec4f(model.position, 1.0);  
+    out.clip_position = ses; 
     out.uv = (vec2<f32>(model.uv) * uniforms.scale) + uniforms.origin; 
     return out;
 }
@@ -36,7 +34,6 @@ fn vs_main(model: VertexInput) -> VertexOutput {
 // Fragment Shader Entry Point
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-  let color = textureSample( myTexture,  mySampler, in.uv);
-
+  let color = textureSample( myTexture,  mySampler, in.uv);  
   return color;
 }
